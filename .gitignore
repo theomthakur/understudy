@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.DS_Store
+scratch/
+*.log
+
+# Transient run output. Curated example runs live in evidence/examples/ and ARE committed.
+evidence/runs/
+evidence/test-runs/

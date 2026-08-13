@@ -1,0 +1,104 @@
+/**
+ * The discovery prompt.
+ *
+ * The model is given a control list, not a page. This is the most important decision in the
+ * whole discovery path: the model can only reference controls the replay engine can also
+ * resolve, because they are looking at the same representation. Show it HTML and it will
+ * reach for CSS selectors, and the resulting artifact will not survive a re-render, let
+ * alone a desktop surface.
+ *
+ * The prompt is also where parameterisation is established. The model is told which values
+ * are parameters and instructed to type them verbatim, so the recorder can match the typed
+ * text back to the parameter with certainty instead of inferring it afterwards.
+ */
+
+import type { InputParam, OutputField } from "../domain/artifact.js";
+import type { Observation } from "../surface/surface.js";
+
+export const SYSTEM_PROMPT = `You operate a business application the way a human operator would, by reading the controls on screen and acting on them.
+
+You will be shown the CONTROLS currently visible, described by their accessibility role and their visible label. This is the same information a screen reader would give a person. You cannot see HTML, CSS, or element IDs, and you must not invent them.
+
+Respond with EXACTLY ONE JSON object and nothing else. No prose, no markdown fences.
+
+Shape:
+{
+  "action": "click" | "type" | "press" | "read" | "navigate" | "done" | "give_up",
+  "reason": "one short sentence on why this is the right next action",
+  "target": { "role": "...", "name": "...", "nameMatch": "exact" | "contains", "frame": "...", "within": { "role": "...", "name": "..." } },
+  "text": "text to type, key to press, or url to navigate to",
+  "outputKey": "for read: which declared output this fills",
+  "successText": "for done: a distinctive phrase on screen that proves the goal was reached"
+}
+
+Rules:
+- "target.role" and "target.name" must come from the CONTROLS list exactly as shown. If what you want is not listed, it is not available; pick something that is, or give up.
+- Copy "frame" from the control's frame value in the list. Frames matter; this app uses them.
+- Use "within" when the same label appears more than once and you need to scope it.
+  "within": { "role": "row", "hasText": "SAVINGS" } means "inside the row that mentions SAVINGS".
+  This is how you address a value in a table: scope to the row that contains a stable word,
+  then match the cell you want. Do not rely on position or on the row's full text, because
+  that text contains the very value you are trying to read and will differ for other records.
+- When typing a value that came from the PARAMETERS list, type it verbatim. Do not reformat, pad, or abbreviate it.
+- Use "read" to capture a value the goal asks you to return, and set "outputKey" to the declared output name.
+- One action per response. Take the smallest sensible step and look again.
+- Prefer the most direct route. Do not explore.
+- If you have satisfied the goal, respond with "done" and give "successText": a distinctive phrase visible on the current screen that a later automated check could look for. Pick something specific to this screen, not a word that appears everywhere.
+- If you are blocked, stuck in a loop, or the goal cannot be met, respond with "give_up" and explain why in "reason".
+- Some controls are refused for safety. If you are told an action was refused, do not retry it; choose another path or finish.`;
+
+export interface ObservationPromptInput {
+  goal: string;
+  observation: Observation;
+  inputs: InputParam[];
+  inputValues: Record<string, string>;
+  outputs: OutputField[];
+  stepNumber: number;
+  maxSteps: number;
+  actionsSoFar: string[];
+}
+
+export function renderObservation(i: ObservationPromptInput): string {
+  const controls = i.observation.tree
+    .filter((n) => n.name || n.value)
+    .slice(0, 90) // budget guard: a legacy grid can emit hundreds of cells
+    .map((n) => {
+      const bits = [`role=${n.role}`, `name="${n.name}"`];
+      if (n.value) bits.push(`value="${n.value}"`);
+      if (n.disabled) bits.push("disabled");
+      bits.push(`frame=${n.frame}`);
+      return `  - ${bits.join(" ")}`;
+    })
+    .join("\n");
+
+  const params = i.inputs
+    .map((p) => `  - ${p.name} (${p.type}) = ${JSON.stringify(i.inputValues[p.name] ?? "")}  — ${p.description}`)
+    .join("\n");
+
+  const outs = i.outputs.map((o) => `  - ${o.name} (${o.type}) — ${o.description}`).join("\n");
+
+  const notices = i.observation.notices.length
+    ? `\nON-SCREEN MESSAGES:\n${i.observation.notices.map((n) => `  - ${n}`).join("\n")}`
+    : "";
+
+  const done = i.actionsSoFar.length
+    ? `\nACTIONS ALREADY TAKEN:\n${i.actionsSoFar.map((a, n) => `  ${n + 1}. ${a}`).join("\n")}`
+    : "";
+
+  return `GOAL: ${i.goal}
+
+PARAMETERS (type these verbatim where the flow asks for them):
+${params || "  (none)"}
+
+OUTPUTS TO CAPTURE (use "read" with the matching outputKey):
+${outs || "  (none)"}
+
+STEP ${i.stepNumber} of ${i.maxSteps}
+CURRENT LOCATION: ${i.observation.location}
+PAGE TITLE: ${i.observation.title}${notices}${done}
+
+CONTROLS:
+${controls || "  (no interactive controls detected)"}
+
+What is the single next action?`;
+}

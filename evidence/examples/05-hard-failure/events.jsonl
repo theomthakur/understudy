@@ -1,0 +1,8 @@
+{"ts":"2026-08-13T06:09:45.676Z","level":"info","event":"replay.start","capability":"member.demo_broken","revision":1,"runId":"replay-20260813T060945-myvs5","attended":false}
+{"ts":"2026-08-13T06:09:45.677Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
+{"ts":"2026-08-13T06:09:45.893Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
+{"ts":"2026-08-13T06:09:45.929Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
+{"ts":"2026-08-13T06:09:46.172Z","level":"info","event":"step.done","stepId":"s2","action":"click","status":"ok"}
+{"ts":"2026-08-13T06:09:46.197Z","level":"info","event":"step.read","stepId":"s3","outputKey":"savingsBalance","value":8241.55}
+{"ts":"2026-08-13T06:09:46.197Z","level":"info","event":"step.done","stepId":"s3","action":"read","status":"ok"}
+{"ts":"2026-08-13T06:09:48.758Z","level":"info","event":"replay.ok","outputs":["savingsBalance"],"durationMs":3082}

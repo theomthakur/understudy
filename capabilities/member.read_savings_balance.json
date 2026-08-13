@@ -74,7 +74,7 @@
         "param": "memberId"
       },
       "risk": "safe",
-      "discoveredBecause": "Enter the provided member ID in the search field.",
+      "discoveredBecause": "Enter the provided member ID into the search field.",
       "optional": false
     },
     {
@@ -108,7 +108,7 @@
         "timeoutMs": 10000,
         "description": "Navigated to /workspace"
       },
-      "discoveredBecause": "Submit the member ID to retrieve the matching member.",
+      "discoveredBecause": "Submit the entered member ID to find the member profile.",
       "optional": false
     },
     {
@@ -136,7 +136,7 @@
       },
       "outputKey": "savingsBalance",
       "risk": "safe",
-      "discoveredBecause": "Capture the current balance from the SAVINGS account row. [recorder: recorded name \"$8,241.55\" looked like currency data rather than a label, so it was generalised to a currency pattern; the row scope is what identifies this cell]",
+      "discoveredBecause": "Capture the balance from the account row identified as SAVINGS. [recorder: recorded name \"$8,241.55\" looked like currency data rather than a label, so it was generalised to a currency pattern; the row scope is what identifies this cell]",
       "optional": false
     }
   ],
@@ -184,18 +184,31 @@
       "code": "NO_SAVINGS_ACCOUNT",
       "description": "The member exists and is viewable, but holds no savings account. A legitimate answer to 'what is their savings balance', and the caller needs to be able to tell it apart from 'the automation could not find the field'.",
       "detect": {
-        "kind": "element-absent",
-        "descriptor": {
-          "role": "cell",
-          "name": "SAVINGS",
-          "nameMatch": "contains",
-          "frame": {
-            "strategy": "main"
+        "kind": "all-of",
+        "conditions": [
+          {
+            "kind": "text-present",
+            "value": "Member Profile",
+            "timeoutMs": 1500,
+            "description": "We are on a member profile"
           },
-          "fallbacks": []
-        },
+          {
+            "kind": "element-absent",
+            "descriptor": {
+              "role": "cell",
+              "name": "SAVINGS",
+              "nameMatch": "contains",
+              "frame": {
+                "strategy": "main"
+              },
+              "fallbacks": []
+            },
+            "timeoutMs": 1500,
+            "description": "...and the accounts grid has no SAVINGS row"
+          }
+        ],
         "timeoutMs": 1500,
-        "description": "The accounts grid contains no SAVINGS row"
+        "description": "On a member profile with no SAVINGS account"
       },
       "terminal": true
     },
@@ -254,11 +267,11 @@
     "state": "draft"
   },
   "provenance": {
-    "recordedAt": "2026-08-13T06:00:53.675Z",
+    "recordedAt": "2026-08-13T06:08:08.818Z",
     "goal": "Look up the member with the given member ID, open their profile, and read the current balance of their SAVINGS account. Capture it as the output 'savingsBalance'.",
     "model": "codex-cli:account-default",
-    "discoveryRunId": "discover-20260813T060009-bxr2o",
+    "discoveryRunId": "discover-20260813T060730-kdh7w",
     "stepCount": 4,
-    "transcriptRef": "evidence/runs/discover-20260813T060009-bxr2o/events.jsonl"
+    "transcriptRef": "evidence/runs/discover-20260813T060730-kdh7w/events.jsonl"
   }
 }

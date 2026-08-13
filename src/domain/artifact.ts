@@ -103,15 +103,37 @@ export type Value = z.infer<typeof ValueSchema>;
  * A checkpoint asserts we actually arrived somewhere, instead of assuming the click worked.
  * Every navigating step carries one. This is the single biggest source of determinism.
  */
-export const CheckpointSchema = z.object({
-  kind: z.enum(["element-visible", "text-present", "url-matches", "element-absent"]),
-  /** Element checkpoints use a descriptor; text/url checkpoints use `value`. */
-  descriptor: ElementDescriptorSchema.optional(),
-  value: z.string().optional(),
-  timeoutMs: z.number().int().positive().default(10_000),
-  description: z.string(),
-});
-export type Checkpoint = z.infer<typeof CheckpointSchema>;
+export type Checkpoint = {
+  kind: "element-visible" | "text-present" | "url-matches" | "element-absent" | "all-of";
+  descriptor?: ElementDescriptor;
+  value?: string;
+  conditions?: Checkpoint[];
+  timeoutMs: number;
+  description: string;
+};
+
+// Input type is `unknown` rather than `Checkpoint`: fields with defaults (timeoutMs,
+// nameMatch) are optional on the way in and present on the way out, so tying the input type
+// to the output type would be a lie the compiler correctly rejects.
+export const CheckpointSchema: z.ZodType<Checkpoint, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.object({
+    kind: z.enum(["element-visible", "text-present", "url-matches", "element-absent", "all-of"]),
+    /** Element checkpoints use a descriptor; text/url checkpoints use `value`. */
+    descriptor: ElementDescriptorSchema.optional(),
+    value: z.string().optional(),
+    /**
+     * For `all-of`. Conjunction exists because absence alone is not a signal.
+     *
+     * "There is no SAVINGS row" is true on the search page, on the login page, and on a blank
+     * tab. An absence rule without a positive precondition matches everywhere, which is how a
+     * detection rule quietly hijacks every unrelated failure. So a rule that asserts something
+     * is missing must also assert where it is missing from.
+     */
+    conditions: z.array(CheckpointSchema).optional(),
+    timeoutMs: z.number().int().positive().default(10_000),
+    description: z.string(),
+  })
+);
 
 /* ------------------------------------------------------------------ steps */
 

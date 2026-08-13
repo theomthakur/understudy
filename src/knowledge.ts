@@ -56,17 +56,33 @@ export const CU_BUSINESS_OUTCOMES: BusinessOutcomeRule[] = [
       "The member exists and is viewable, but holds no savings account. A legitimate answer to " +
       "'what is their savings balance', and the caller needs to be able to tell it apart from " +
       "'the automation could not find the field'.",
+    // Conjunctive on purpose. "No SAVINGS row" on its own is also true of the search page,
+    // the session-expired page and a blank tab, so without the positive precondition this
+    // rule hijacks every unrelated failure. It did exactly that before it was scoped.
     detect: {
-      kind: "element-absent",
-      descriptor: {
-        role: "cell",
-        name: "SAVINGS",
-        nameMatch: "contains",
-        frame: { strategy: "main" },
-        fallbacks: [],
-      },
+      kind: "all-of",
+      conditions: [
+        {
+          kind: "text-present",
+          value: "Member Profile",
+          timeoutMs: 1500,
+          description: "We are on a member profile",
+        },
+        {
+          kind: "element-absent",
+          descriptor: {
+            role: "cell",
+            name: "SAVINGS",
+            nameMatch: "contains",
+            frame: { strategy: "main" },
+            fallbacks: [],
+          },
+          timeoutMs: 1500,
+          description: "...and the accounts grid has no SAVINGS row",
+        },
+      ],
       timeoutMs: 1500,
-      description: "The accounts grid contains no SAVINGS row",
+      description: "On a member profile with no SAVINGS account",
     },
     terminal: true,
   },

@@ -174,9 +174,19 @@ export async function replay(
         const message = err instanceof Error ? err.message : String(err);
         log.warn("step.action_error", { stepId: step.id, attempt, detail: message });
 
-        // An action throwing is not automatically a failure. The page may be showing a
-        // declared business outcome or a recoverable interstitial, and we must look before
-        // we conclude anything.
+        // A policy denial is never a business outcome. It is a statement about what we are
+        // allowed to do, not about what the application answered, and letting a detection
+        // rule reinterpret it would turn a refusal into a result.
+        if (/^Policy denied/.test(message)) {
+          const r = fail("policy_denied", step.id, "an action permitted by policy", message, message);
+          await captureFailure(opts.surface, log, r);
+          log.saveResult(r);
+          return r;
+        }
+
+        // Otherwise, an action throwing is not automatically a failure. The page may be
+        // showing a declared business outcome or a recoverable interstitial, and we must
+        // look before concluding anything.
         const obs = await safeObserve(opts.surface);
         const outcome = obs && detectBusinessOutcome(artifact, obs);
         if (outcome) return finishOutcome(outcome, artifact, outputs, trace, evidence, started, log);
@@ -438,6 +448,13 @@ async function assertCheckpoint(cp: Checkpoint, surface: Surface): Promise<boole
   for (;;) {
     try {
       switch (cp.kind) {
+        case "all-of": {
+          const results = await Promise.all(
+            (cp.conditions ?? []).map((c) => assertCheckpoint({ ...c, timeoutMs: 1 }, surface))
+          );
+          if (results.length > 0 && results.every(Boolean)) return true;
+          break;
+        }
         case "url-matches": {
           const url = await surface.currentLocation();
           if (new RegExp(cp.value ?? "").test(url)) return true;
@@ -493,6 +510,9 @@ function detectRecovery(artifact: CapabilityArtifact, obs: Observation): Recover
 
 function matchesObservation(cp: Checkpoint, obs: Observation): boolean {
   switch (cp.kind) {
+    case "all-of":
+      return (cp.conditions ?? []).length > 0 &&
+        (cp.conditions ?? []).every((c) => matchesObservation(c, obs));
     case "text-present": {
       const needle = (cp.value ?? "").toLowerCase();
       if (!needle) return false;

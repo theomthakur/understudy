@@ -10,38 +10,38 @@
       "stepId": "s0",
       "action": "navigate",
       "risk": "safe",
-      "startedAt": "2026-08-13T06:02:21.895Z",
-      "durationMs": 220,
+      "startedAt": "2026-08-13T06:09:45.676Z",
+      "durationMs": 217,
       "status": "ok"
     },
     {
       "stepId": "s1",
       "action": "type",
       "risk": "safe",
-      "startedAt": "2026-08-13T06:02:22.116Z",
-      "durationMs": 43,
+      "startedAt": "2026-08-13T06:09:45.894Z",
+      "durationMs": 35,
       "status": "ok"
     },
     {
       "stepId": "s2",
       "action": "click",
       "risk": "safe",
-      "startedAt": "2026-08-13T06:02:22.160Z",
-      "durationMs": 239,
+      "startedAt": "2026-08-13T06:09:45.929Z",
+      "durationMs": 243,
       "status": "ok"
     },
     {
       "stepId": "s3",
       "action": "read",
       "risk": "safe",
-      "startedAt": "2026-08-13T06:02:22.400Z",
-      "durationMs": 26,
+      "startedAt": "2026-08-13T06:09:46.173Z",
+      "durationMs": 24,
       "status": "ok"
     }
   ],
   "evidence": {
-    "runId": "replay-20260813T060221-oyr85",
-    "logPath": "evidence/runs/replay-20260813T060221-oyr85/events.jsonl"
+    "runId": "replay-20260813T060945-myvs5",
+    "logPath": "evidence/runs/replay-20260813T060945-myvs5/events.jsonl"
   },
-  "durationMs": 3089
+  "durationMs": 3082
 }

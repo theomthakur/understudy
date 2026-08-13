@@ -2,7 +2,7 @@
   "location": "http://localhost:4471/workspace?memberId=12345&tenant=riverbend",
   "title": "Member Workspace 12345",
   "notices": [],
-  "capturedAt": "2026-08-13T06:00:43.430Z",
+  "capturedAt": "2026-08-13T06:08:00.477Z",
   "controls": [
     {
       "role": "text",

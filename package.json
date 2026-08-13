@@ -12,6 +12,7 @@
     "discover": "tsx src/cli.ts discover",
     "replay": "tsx src/cli.ts replay",
     "catalog": "tsx src/cli.ts catalog",
+    "seed": "tsx scripts/author-example-artifact.ts",
     "operator": "tsx src/cli.ts operator",
     "test": "node --import tsx --test tests/*.test.ts",
     "postinstall": "playwright install chromium --with-deps || playwright install chromium || true"

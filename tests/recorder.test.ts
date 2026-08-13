@@ -206,6 +206,20 @@ test("redactor removes declared secrets and known patterns from nested structure
   assert.equal(out.password, "[REDACTED]", "sensitive keys are dropped, not pattern-matched");
 });
 
+test("accountability fields survive redaction, because that is what the audit is for", () => {
+  const r = new Redactor();
+  const out = r.redact({
+    event: "control.claimed",
+    operator: "dana.ops@example.invalid",
+    claimedBy: "dana.ops@example.invalid",
+    memberEmail: "customer@example.invalid",
+  }) as Record<string, string | undefined>;
+
+  assert.equal(out.operator, "dana.ops@example.invalid", "who took control must stay in the log");
+  assert.equal(out.claimedBy, "dana.ops@example.invalid");
+  assert.match(String(out.memberEmail), /REDACTED/, "customer PII must still be redacted");
+});
+
 test("maskPartial keeps enough to correlate without revealing the value", () => {
   assert.equal(maskPartial("12345678"), "12****78");
   assert.equal(maskPartial("abc"), "***");

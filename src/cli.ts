@@ -234,12 +234,11 @@ async function cmdReplay(args: Args): Promise<void> {
 
   const redactor = new Redactor();
   const brokerLog = new EvidenceLog(newRunId("replay"), redactor);
-  const operator = await startOperatorServer(
-    new EscalationBroker(surface, brokerLog, `http://localhost:${OPERATOR_PORT}`),
-    OPERATOR_PORT
-  ).catch(() => undefined);
 
+  // One broker, shared by the run and the operator surface. Two instances would mean the
+  // operator queue serves a different object from the one holding the intervention.
   const broker = new EscalationBroker(surface, brokerLog, `http://localhost:${OPERATOR_PORT}`);
+  const operator = await startOperatorServer(broker, OPERATOR_PORT).catch(() => undefined);
 
   try {
     const result = await replay(artifact, inputs, {

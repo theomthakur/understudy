@@ -1,0 +1,246 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "member.read_savings_balance",
+  "revision": 1,
+  "title": "Read a member's savings balance",
+  "description": "Looks up a member by ID and returns the balance of their savings account.",
+  "application": {
+    "productId": "acme-core-banking",
+    "surface": "legacy-web",
+    "baseUrl": "http://localhost:4471"
+  },
+  "inputs": [
+    {
+      "name": "memberId",
+      "type": "string",
+      "required": true,
+      "description": "Member ID as shown in the console",
+      "sensitive": false,
+      "pattern": "^\\d{3,10}$"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "savingsBalance",
+      "type": "number",
+      "description": "Savings balance in dollars",
+      "sensitive": false
+    }
+  ],
+  "steps": [
+    {
+      "id": "s0",
+      "action": "navigate",
+      "value": {
+        "kind": "literal",
+        "value": "http://localhost:4471"
+      },
+      "risk": "safe",
+      "checkpoint": {
+        "kind": "element-visible",
+        "descriptor": {
+          "role": "button",
+          "name": "Search",
+          "nameMatch": "exact",
+          "frame": {
+            "strategy": "main"
+          },
+          "fallbacks": []
+        },
+        "timeoutMs": 8000,
+        "description": "Search page is loaded"
+      },
+      "discoveredBecause": "Entry point for the flow",
+      "optional": false
+    },
+    {
+      "id": "s1",
+      "action": "type",
+      "target": {
+        "role": "textbox",
+        "name": "Member ID",
+        "nameMatch": "contains",
+        "frame": {
+          "strategy": "main"
+        },
+        "fallbacks": [
+          {
+            "kind": "role-name",
+            "value": "Member",
+            "note": "relaxed to substring — survives the per-tenant relabel to 'Member Number'"
+          },
+          {
+            "kind": "label",
+            "value": "Member",
+            "note": "label association, if the accessible name is computed differently"
+          }
+        ]
+      },
+      "value": {
+        "kind": "param",
+        "param": "memberId"
+      },
+      "risk": "safe",
+      "discoveredBecause": "Enter the member id into the search field",
+      "optional": false
+    },
+    {
+      "id": "s2",
+      "action": "click",
+      "target": {
+        "role": "button",
+        "name": "Search",
+        "nameMatch": "exact",
+        "frame": {
+          "strategy": "main"
+        },
+        "fallbacks": [
+          {
+            "kind": "text",
+            "value": "Search",
+            "note": "visible text — last resort"
+          }
+        ]
+      },
+      "risk": "safe",
+      "checkpoint": {
+        "kind": "element-visible",
+        "descriptor": {
+          "role": "heading",
+          "name": "Member Profile",
+          "nameMatch": "contains",
+          "frame": {
+            "strategy": "main"
+          },
+          "fallbacks": []
+        },
+        "timeoutMs": 8000,
+        "description": "Member profile is showing"
+      },
+      "discoveredBecause": "Submit the search",
+      "optional": false
+    },
+    {
+      "id": "s3",
+      "action": "read",
+      "target": {
+        "role": "cell",
+        "name": "^\\$[0-9,.]+$",
+        "nameMatch": "regex",
+        "within": {
+          "role": "row",
+          "hasText": "SAVINGS"
+        },
+        "frame": {
+          "strategy": "main"
+        },
+        "fallbacks": []
+      },
+      "outputKey": "savingsBalance",
+      "risk": "safe",
+      "discoveredBecause": "Read the balance from the SAVINGS row of the accounts grid",
+      "optional": false
+    }
+  ],
+  "successCheckpoint": {
+    "kind": "text-present",
+    "value": "Member Profile",
+    "timeoutMs": 8000,
+    "description": "Reached the member profile"
+  },
+  "businessOutcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member exists with the supplied ID. A legitimate answer, not a failure.",
+      "detect": {
+        "kind": "text-present",
+        "value": "No member found with ID",
+        "timeoutMs": 1500,
+        "description": "Search page shows a not-found message"
+      },
+      "terminal": true
+    },
+    {
+      "code": "PERMISSION_DENIED",
+      "description": "The record is restricted and this operator may not view it.",
+      "detect": {
+        "kind": "text-present",
+        "value": "do not have permission",
+        "timeoutMs": 1500,
+        "description": "Authorization error is displayed"
+      },
+      "terminal": true
+    },
+    {
+      "code": "VALIDATION_ERROR",
+      "description": "The application rejected the supplied input.",
+      "detect": {
+        "kind": "text-present",
+        "value": "must be numeric",
+        "timeoutMs": 1500,
+        "description": "Field validation message is displayed"
+      },
+      "terminal": true
+    },
+    {
+      "code": "SESSION_EXPIRED",
+      "description": "The session timed out. Terminal for this run: re-authentication is the caller's concern, not something automation should attempt with stored credentials.",
+      "detect": {
+        "kind": "text-present",
+        "value": "session has timed out",
+        "timeoutMs": 1500,
+        "description": "Session expiry page is displayed"
+      },
+      "terminal": true
+    }
+  ],
+  "recoveries": [
+    {
+      "code": "DISMISS_MAINTENANCE_NOTICE",
+      "description": "A scheduled-maintenance interstitial appears over the member profile.",
+      "detect": {
+        "kind": "text-present",
+        "value": "Scheduled maintenance tonight",
+        "timeoutMs": 1500,
+        "description": "Maintenance notice is present"
+      },
+      "remedy": {
+        "kind": "reload"
+      },
+      "maxAttempts": 2
+    },
+    {
+      "code": "TRANSIENT_SLOW_LOAD",
+      "description": "The page is taking unusually long. Wait once before treating it as a failure.",
+      "detect": {
+        "kind": "text-present",
+        "value": "Application Error",
+        "timeoutMs": 1000,
+        "description": "Generic application error, which is sometimes transient"
+      },
+      "remedy": {
+        "kind": "wait",
+        "ms": 1500
+      },
+      "maxAttempts": 1
+    }
+  ],
+  "tenantOverlays": [
+    {
+      "tenantId": "summitline",
+      "baseUrl": "http://localhost:4471/?tenant=summitline",
+      "descriptorOverrides": {},
+      "note": "Same vendor product, different branding. The member-id field is labelled 'Member Number' here; the base descriptor's contains-match fallback covers it, so no override is needed. If the label diverged further, the override would go here rather than in a new artifact."
+    }
+  ],
+  "approval": {
+    "state": "draft"
+  },
+  "provenance": {
+    "recordedAt": "2026-08-13T05:20:14.676Z",
+    "goal": "Look up a member and read their savings balance",
+    "model": "none — authored by hand so replay can be demonstrated without credentials",
+    "discoveryRunId": "hand-authored-pending-discovery",
+    "stepCount": 4
+  }
+}

@@ -62,6 +62,10 @@ npm run discover -- --goal read_savings_balance --headed    # watch it work
 
 Writes `capabilities/member.read_savings_balance.json` and evidence to `evidence/runs/<runId>/`.
 
+> **No model key?** `npm run seed` writes a hand-authored artifact of the same shape so you can
+> exercise everything below. It is clearly marked as hand-authored in its `provenance`, and
+> `npm run discover` overwrites it with the genuinely discovered one.
+
 ### 3. Replay — the production path, no model
 
 ```bash

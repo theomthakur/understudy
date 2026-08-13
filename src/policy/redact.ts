@@ -19,6 +19,12 @@
  * explicitly declares them as an output. Anything else is a leak waiting to happen.
  */
 
+/**
+ * Operator/staff identity fields, exempt from redaction. See the note in `walk()`.
+ * Deliberately a short, explicit list rather than a loose pattern.
+ */
+const IDENTITY_KEYS = /^(operator|claimedBy|reviewedBy|actor|performedBy)$/;
+
 const PATTERNS: { name: string; re: RegExp; replacement: string }[] = [
   { name: "ssn", re: /\b\d{3}-\d{2}-\d{4}\b/g, replacement: "[REDACTED:SSN]" },
   { name: "card", re: /\b(?:\d[ -]?){13,19}\b/g, replacement: "[REDACTED:CARD]" },
@@ -73,6 +79,16 @@ export class Redactor {
         // Keys that are sensitive by name get dropped entirely rather than pattern-matched.
         if (/^(password|passwd|secret|token|apiKey|api_key|authorization|cookie)$/i.test(k)) {
           out[k] = "[REDACTED]";
+          continue;
+        }
+        // Accountability fields survive redaction, deliberately.
+        //
+        // These identify *staff*, not customers, and the whole purpose of a control-transfer
+        // record is to answer "who was holding this session". Scrubbing the operator out of
+        // the audit trail satisfies the redaction rule and destroys the thing the rule exists
+        // to protect. Customer PII stays redacted; the person who acted does not.
+        if (IDENTITY_KEYS.test(k) && typeof val === "string") {
+          out[k] = val;
           continue;
         }
         out[k] = this.walk(val);

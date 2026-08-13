@@ -1,0 +1,43 @@
+{
+  "location": "http://localhost:4471/",
+  "title": "Member Search",
+  "notices": [],
+  "capturedAt": "2026-08-13T06:00:17.744Z",
+  "controls": [
+    {
+      "role": "text",
+      "name": "\"Riverbend Credit Union — Back Office Console Operator: svc.automation\"",
+      "frame": "main"
+    },
+    {
+      "role": "heading",
+      "name": "Member Search",
+      "frame": "main"
+    },
+    {
+      "role": "cell",
+      "name": "Member ID",
+      "frame": "main"
+    },
+    {
+      "role": "cell",
+      "name": "12345",
+      "frame": "main"
+    },
+    {
+      "role": "textbox",
+      "name": "Member ID",
+      "frame": "main"
+    },
+    {
+      "role": "cell",
+      "name": "Search",
+      "frame": "main"
+    },
+    {
+      "role": "button",
+      "name": "Search",
+      "frame": "main"
+    }
+  ]
+}

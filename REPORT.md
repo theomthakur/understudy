@@ -156,6 +156,45 @@ green until they suddenly do not.
 
 ---
 
+### What the real discovery run changed
+
+Two bugs only appeared once a live model drove the app, and both are the same bug wearing
+different clothes. They are worth writing down because they are the central hazard of
+record-and-replay and neither is visible in a happy-path demo.
+
+**The model targeted the balance cell by its value.** It chose `cell "$8,241.55"` — correctly
+scoped to the SAVINGS row, and then pinned to the number it happened to see. That capability
+succeeds for the member it was recorded on and fails for every other member.
+
+**The model chose the record itself as the success marker.** Asked for "a distinctive phrase
+that proves the goal was reached", it picked `"SV-100241 SAVINGS $8,241.55 OPEN"`. Genuinely
+distinctive. Specific to one member.
+
+The general rule underneath both: **a discovery model identifies things by looking at one
+screen, and on a record screen what it can see IS the record.** It cannot detect this itself,
+because it only ever sees one example. So validating it is the recorder's job, and the recorder
+now does two things it did not before:
+
+- **Generalises value-shaped read targets.** If a read target's accessible name matches a
+  currency, number or date shape, the name is relaxed to a pattern for that shape and the
+  structural part of the descriptor — the `within` row scope, which is what actually identifies
+  the cell — is kept. Narrow on purpose: it only fires on `read`, and generalising a genuine
+  label would be worse than the bug it fixes.
+- **Rejects a success marker that contains run-specific data.** Checked against this run's input
+  values, its extracted outputs, and currency/long-digit shapes. On rejection it falls back to a
+  digit-free heading from the final screen, then to a checkpoint it already trusts. Both the
+  rejection and the reason are written into the artifact so a reviewer sees the substitution.
+
+A third finding came from testing the recorded capability against every member rather than the
+one it was recorded on. Member 44120 holds no savings account at all, and the run failed with
+`target_not_found` — technically true, and the wrong answer. "This member has no savings
+account" is a business outcome the caller needs, not a broken automation. It is now a declared
+outcome, `NO_SAVINGS_ACCOUNT`, detected by the absence of a SAVINGS row.
+
+That last one is the clearest argument for the three-way result contract: the difference between
+*the automation broke* and *the answer is no* is invisible unless the type system makes you say
+which one you mean.
+
 ## 4. Heterogeneity and multi-tenant
 
 **Surface abstraction.** The seam is `observe / resolve / act` over an accessibility model, and

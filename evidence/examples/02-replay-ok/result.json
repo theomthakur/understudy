@@ -1,0 +1,47 @@
+{
+  "status": "ok",
+  "capability": "member.read_savings_balance",
+  "revision": 1,
+  "outputs": {
+    "savingsBalance": 8241.55
+  },
+  "trace": [
+    {
+      "stepId": "s0",
+      "action": "navigate",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:02.831Z",
+      "durationMs": 215,
+      "status": "ok"
+    },
+    {
+      "stepId": "s1",
+      "action": "type",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:03.046Z",
+      "durationMs": 32,
+      "status": "ok"
+    },
+    {
+      "stepId": "s2",
+      "action": "click",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:03.078Z",
+      "durationMs": 237,
+      "status": "ok"
+    },
+    {
+      "stepId": "s3",
+      "action": "read",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:03.315Z",
+      "durationMs": 29,
+      "status": "ok"
+    }
+  ],
+  "evidence": {
+    "runId": "replay-20260813T060202-h8oc1",
+    "logPath": "evidence/runs/replay-20260813T060202-h8oc1/events.jsonl"
+  },
+  "durationMs": 3074
+}

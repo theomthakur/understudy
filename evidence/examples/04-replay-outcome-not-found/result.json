@@ -1,0 +1,31 @@
+{
+  "status": "outcome",
+  "capability": "member.read_savings_balance",
+  "revision": 1,
+  "code": "MEMBER_NOT_FOUND",
+  "description": "No member exists with the supplied ID. A legitimate answer, not a failure.",
+  "outputs": {},
+  "trace": [
+    {
+      "stepId": "s0",
+      "action": "navigate",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:10.701Z",
+      "durationMs": 215,
+      "status": "ok"
+    },
+    {
+      "stepId": "s1",
+      "action": "type",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:10.917Z",
+      "durationMs": 39,
+      "status": "ok"
+    }
+  ],
+  "evidence": {
+    "runId": "replay-20260813T060210-ycav5",
+    "logPath": "evidence/runs/replay-20260813T060210-ycav5/events.jsonl"
+  },
+  "durationMs": 10590
+}

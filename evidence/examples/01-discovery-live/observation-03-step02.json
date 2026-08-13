@@ -1,0 +1,188 @@
+{
+  "location": "http://localhost:4471/workspace?memberId=12345&tenant=riverbend",
+  "title": "Member Workspace 12345",
+  "notices": [],
+  "capturedAt": "2026-08-13T06:00:29.286Z",
+  "controls": [
+    {
+      "role": "text",
+      "name": "\"Riverbend Credit Union — Back Office Console Operator: svc.automation\"",
+      "frame": "hdr"
+    },
+    {
+      "role": "link",
+      "name": "Member Search",
+      "frame": "hdr"
+    },
+    {
+      "role": "text",
+      "name": "\"Workspace: 12345\"",
+      "frame": "hdr"
+    },
+    {
+      "role": "text",
+      "name": "\"Riverbend Credit Union — Back Office Console Operator: svc.automation\"",
+      "frame": "detail"
+    },
+    {
+      "role": "heading",
+      "name": "Member Profile",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "Member ID 12345 Name Dana Whitfield Branch Riverside Joined 2016-03-11 SSN ***-**-4417",
+      "frame": "detail"
+    },
+    {
+      "role": "rowheader",
+      "name": "Member ID",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "12345",
+      "frame": "detail"
+    },
+    {
+      "role": "rowheader",
+      "name": "Name",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "Dana Whitfield",
+      "frame": "detail"
+    },
+    {
+      "role": "rowheader",
+      "name": "Branch",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "Riverside",
+      "frame": "detail"
+    },
+    {
+      "role": "rowheader",
+      "name": "Joined",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "2016-03-11",
+      "frame": "detail"
+    },
+    {
+      "role": "rowheader",
+      "name": "SSN",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "***-**-4417",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "Accounts Account Type Balance Status SV-100241 SAVINGS $8,241.55 OPEN View CK-100242 CHECKING $1,930.08 OPEN View",
+      "frame": "detail"
+    },
+    {
+      "role": "columnheader",
+      "name": "Accounts",
+      "frame": "detail"
+    },
+    {
+      "role": "columnheader",
+      "name": "Account",
+      "frame": "detail"
+    },
+    {
+      "role": "columnheader",
+      "name": "Type",
+      "frame": "detail"
+    },
+    {
+      "role": "columnheader",
+      "name": "Balance",
+      "frame": "detail"
+    },
+    {
+      "role": "columnheader",
+      "name": "Status",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "SV-100241",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "SAVINGS",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "$8,241.55",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "OPEN",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "View",
+      "frame": "detail"
+    },
+    {
+      "role": "link",
+      "name": "View",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "CK-100242",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "CHECKING",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "$1,930.08",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "OPEN",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "View",
+      "frame": "detail"
+    },
+    {
+      "role": "link",
+      "name": "View",
+      "frame": "detail"
+    },
+    {
+      "role": "button",
+      "name": "Open Sub-Account",
+      "frame": "detail"
+    },
+    {
+      "role": "text",
+      "name": "Opening a sub-account requires confirmation.",
+      "frame": "detail"
+    }
+  ]
+}

@@ -43,7 +43,11 @@ Rules:
 - Use "read" to capture a value the goal asks you to return, and set "outputKey" to the declared output name.
 - One action per response. Take the smallest sensible step and look again.
 - Prefer the most direct route. Do not explore.
-- If you have satisfied the goal, respond with "done" and give "successText": a distinctive phrase visible on the current screen that a later automated check could look for. Pick something specific to this screen, not a word that appears everywhere.
+- If you have satisfied the goal, respond with "done" and give "successText": a phrase visible on
+  the current screen that a later automated check could look for.
+  It must be a LABEL, not DATA. It must NOT contain any name, number, balance, date, account
+  number or ID belonging to this particular record, because the same capability will later run
+  for different records. A section heading is usually the right answer.
 - If you are blocked, stuck in a loop, or the goal cannot be met, respond with "give_up" and explain why in "reason".
 - Some controls are refused for safety. If you are told an action was refused, do not retry it; choose another path or finish.`;
 

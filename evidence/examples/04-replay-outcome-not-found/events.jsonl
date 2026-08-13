@@ -1,0 +1,5 @@
+{"ts":"2026-08-13T06:02:10.701Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260813T060210-ycav5","attended":false}
+{"ts":"2026-08-13T06:02:10.702Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
+{"ts":"2026-08-13T06:02:10.916Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
+{"ts":"2026-08-13T06:02:10.956Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
+{"ts":"2026-08-13T06:02:21.291Z","level":"info","event":"replay.business_outcome","code":"MEMBER_NOT_FOUND","description":"No member exists with the supplied ID. A legitimate answer, not a failure."}

@@ -289,9 +289,25 @@ export async function discover(
 
 const ACTIONS = new Set(["click", "type", "press", "read", "navigate", "done", "give_up"]);
 
-function validateProposal(v: unknown): ProposedAction {
-  if (!v || typeof v !== "object") throw new Error("Expected a JSON object.");
-  const o = v as Record<string, unknown>;
+/**
+ * Strict structured output requires every field to be present, so absent fields arrive as
+ * explicit nulls. Normalising them here keeps the rest of the code free of null checks that
+ * only exist because of a provider's schema dialect.
+ */
+function denull(o: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (v === null) continue;
+    out[k] = v && typeof v === "object" && !Array.isArray(v)
+      ? denull(v as Record<string, unknown>)
+      : v;
+  }
+  return out;
+}
+
+function validateProposal(raw: unknown): ProposedAction {
+  if (!raw || typeof raw !== "object") throw new Error("Expected a JSON object.");
+  const o = denull(raw as Record<string, unknown>);
   const action = String(o.action ?? "");
   if (!ACTIONS.has(action)) {
     throw new Error(`Unknown action "${action}". Allowed: ${[...ACTIONS].join(", ")}.`);

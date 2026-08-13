@@ -1,0 +1,39 @@
+{
+  "status": "outcome",
+  "capability": "member.read_savings_balance",
+  "revision": 1,
+  "code": "NO_SAVINGS_ACCOUNT",
+  "description": "The member exists and is viewable, but holds no savings account. A legitimate answer to 'what is their savings balance', and the caller needs to be able to tell it apart from 'the automation could not find the field'.",
+  "outputs": {},
+  "trace": [
+    {
+      "stepId": "s0",
+      "action": "navigate",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:06.747Z",
+      "durationMs": 215,
+      "status": "ok"
+    },
+    {
+      "stepId": "s1",
+      "action": "type",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:06.963Z",
+      "durationMs": 43,
+      "status": "ok"
+    },
+    {
+      "stepId": "s2",
+      "action": "click",
+      "risk": "safe",
+      "startedAt": "2026-08-13T06:02:07.006Z",
+      "durationMs": 243,
+      "status": "ok"
+    }
+  ],
+  "evidence": {
+    "runId": "replay-20260813T060206-clbji",
+    "logPath": "evidence/runs/replay-20260813T060206-clbji/events.jsonl"
+  },
+  "durationMs": 3104
+}

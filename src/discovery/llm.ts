@@ -10,6 +10,8 @@
  * but that is a reason to constrain it, not to shrug.
  */
 
+import { CodexCliClient } from "./codex-client.js";
+
 export interface LlmMessage {
   role: "user" | "assistant";
   content: string;
@@ -85,7 +87,13 @@ export function createLlmClient(): LlmClient {
   const anth = process.env.ANTHROPIC_API_KEY;
   const oai = process.env.OPENAI_API_KEY;
 
-  const provider = explicit ?? (anth ? "anthropic" : oai ? "openai" : undefined);
+  // Codex CLI is preferred when nothing else is configured, because it uses the developer's
+  // existing local authentication. No key enters the repo, the environment, or the evidence,
+  // which is a better posture for a project whose whole subject is handling regulated data.
+  const provider =
+    explicit ?? (anth ? "anthropic" : oai ? "openai" : CodexCliClient.isAvailable() ? "codex" : undefined);
+
+  if (provider === "codex") return new CodexCliClient();
 
   if (provider === "anthropic") {
     if (!anth) throw new MissingKeyError("ANTHROPIC_API_KEY");
@@ -99,7 +107,7 @@ export function createLlmClient(): LlmClient {
       process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
     );
   }
-  throw new MissingKeyError("ANTHROPIC_API_KEY or OPENAI_API_KEY");
+  throw new MissingKeyError("ANTHROPIC_API_KEY or OPENAI_API_KEY (or install the Codex CLI)");
 }
 
 export class MissingKeyError extends Error {

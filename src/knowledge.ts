@@ -51,6 +51,26 @@ export const CU_BUSINESS_OUTCOMES: BusinessOutcomeRule[] = [
     terminal: true,
   },
   {
+    code: "NO_SAVINGS_ACCOUNT",
+    description:
+      "The member exists and is viewable, but holds no savings account. A legitimate answer to " +
+      "'what is their savings balance', and the caller needs to be able to tell it apart from " +
+      "'the automation could not find the field'.",
+    detect: {
+      kind: "element-absent",
+      descriptor: {
+        role: "cell",
+        name: "SAVINGS",
+        nameMatch: "contains",
+        frame: { strategy: "main" },
+        fallbacks: [],
+      },
+      timeoutMs: 1500,
+      description: "The accounts grid contains no SAVINGS row",
+    },
+    terminal: true,
+  },
+  {
     code: "SESSION_EXPIRED",
     description:
       "The session timed out. Terminal for this run: re-authentication is the caller's concern, " +

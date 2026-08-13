@@ -32,10 +32,16 @@ goal ──▶ LLM discovery ──▶ capability artifact ──▶ determinist
 
 ```bash
 npm install                    # also installs the Chromium Playwright needs
-cp .env.example .env           # add a model key for discovery only
 ```
 
-**Replay needs no API key.** It never calls a model. Only the discovery run does.
+**No API key required, for either path.**
+
+Replay never calls a model. Discovery defaults to the **Codex CLI** over `npx`, which uses your
+existing local ChatGPT authentication — so a genuine model-driven run needs no key in the repo,
+no key in the environment, and nothing to leak. For a project about handling regulated data that
+is a better posture than an API key, not merely a cheaper one.
+
+Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env` to use an API instead.
 
 ### 1. Start the stand-in back-office app
 
@@ -48,8 +54,9 @@ tables, no test IDs, ASP.NET-style ids that carry row indexes. All data is synth
 
 | Member | What it exercises |
 |---|---|
-| `12345` | happy path, two accounts |
-| `22871` | happy path, different balance — proves parameterisation |
+| `12345` | happy path, two accounts. The member discovery is recorded against. |
+| `22871` | happy path, different balance — proves the recording generalised |
+| `44120` | no savings account at all → `NO_SAVINGS_ACCOUNT` |
 | `30099` | restricted record → `PERMISSION_DENIED` |
 | `99999` | does not exist → `MEMBER_NOT_FOUND` |
 
@@ -61,10 +68,6 @@ npm run discover -- --goal read_savings_balance --headed    # watch it work
 ```
 
 Writes `capabilities/member.read_savings_balance.json` and evidence to `evidence/runs/<runId>/`.
-
-> **No model key?** `npm run seed` writes a hand-authored artifact of the same shape so you can
-> exercise everything below. It is clearly marked as hand-authored in its `provenance`, and
-> `npm run discover` overwrites it with the genuinely discovered one.
 
 ### 3. Replay — the production path, no model
 
@@ -138,7 +141,7 @@ npm run target        # in one terminal
 npm test              # in another
 ```
 
-35 tests, no model key required.
+36 tests, no model key required.
 
 | File | Covers |
 |---|---|

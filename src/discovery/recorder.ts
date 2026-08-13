@@ -85,19 +85,7 @@ export function record(input: RecordInput): CapabilityArtifact {
     if (step) steps.push(step);
   });
 
-  const successCheckpoint: Checkpoint = input.discovery.successText
-    ? {
-        kind: "text-present",
-        value: input.discovery.successText,
-        timeoutMs: 10_000,
-        description: `Goal reached: "${input.discovery.successText}" is visible`,
-      }
-    : {
-        kind: "url-matches",
-        value: ".*",
-        timeoutMs: 5_000,
-        description: "Flow completed (no distinctive success marker was captured)",
-      };
+  const successCheckpoint = buildSuccessCheckpoint(input, steps);
 
   const artifact: CapabilityArtifact = {
     schemaVersion: SCHEMA_VERSION,
@@ -131,6 +119,91 @@ export function record(input: RecordInput): CapabilityArtifact {
   // Parse rather than cast: a recorder bug should fail here, loudly, not at replay time on
   // someone else's machine.
   return CapabilityArtifactSchema.parse(artifact);
+}
+
+
+/* ---------------------------------------------------------------- success marker */
+
+/**
+ * Choosing a durable success marker.
+ *
+ * The model is asked for "a distinctive phrase that proves the goal was reached", and on a
+ * record screen the most distinctive thing visible is the record itself. In a real run it
+ * chose `"SV-100241 SAVINGS $8,241.55 OPEN"` — genuinely distinctive, and specific to one
+ * member, so the capability succeeded for the member it was recorded on and failed for
+ * everyone else.
+ *
+ * This is the same failure as a value-shaped read target, one layer up, and it is worth
+ * stating the general rule: **anything the model chooses by looking at the screen has to be
+ * checked against the inputs and outputs of this particular run before it is frozen into a
+ * capability.** The model cannot make that check, because it only ever sees one record.
+ *
+ * So: reject a marker that contains an input value, an extracted output, or a run of digits
+ * that suggests record data, and fall back to something structural — a digit-free heading
+ * from the final screen, or failing that the final URL.
+ */
+function buildSuccessCheckpoint(input: RecordInput, steps: Step[]): Checkpoint {
+  const proposed = input.discovery.successText?.trim();
+  const rejection = proposed ? volatileReason(proposed, input) : "no marker was captured";
+
+  if (proposed && !rejection) {
+    return {
+      kind: "text-present",
+      value: proposed,
+      timeoutMs: 10_000,
+      description: `Goal reached: "${proposed}" is visible`,
+    };
+  }
+
+  // Fallback 1: a heading with no digits in it. Headings are labels, not data.
+  const heading = input.discovery.finalObservation?.tree.find(
+    (n) => n.role === "heading" && n.name && !/\d/.test(n.name)
+  );
+  if (heading) {
+    return {
+      kind: "text-present",
+      value: heading.name,
+      timeoutMs: 10_000,
+      description:
+        `Goal reached: heading "${heading.name}" is visible ` +
+        `(recorder: the model's marker was rejected — ${rejection})`,
+    };
+  }
+
+  // Fallback 2: the last checkpoint we already trust.
+  const lastWithCheckpoint = [...steps].reverse().find((s) => s.checkpoint);
+  if (lastWithCheckpoint?.checkpoint) {
+    return {
+      ...lastWithCheckpoint.checkpoint,
+      description:
+        `${lastWithCheckpoint.checkpoint.description} ` +
+        `(recorder: reused as the success marker — ${rejection})`,
+    };
+  }
+
+  return {
+    kind: "url-matches",
+    value: ".*",
+    timeoutMs: 5_000,
+    description: `Flow completed, but no durable success marker was available (${rejection})`,
+  };
+}
+
+/** Returns why a marker is unsafe to freeze, or null if it is fine. */
+function volatileReason(text: string, input: RecordInput): string | null {
+  for (const [name, value] of Object.entries(input.inputValues)) {
+    if (value && text.includes(value)) {
+      return `it contains the input value for "${name}", so it would only match this record`;
+    }
+  }
+  for (const a of input.discovery.actions) {
+    if (a.readValue && a.readValue.length > 2 && text.includes(a.readValue)) {
+      return `it contains a value this run extracted, which varies per record`;
+    }
+  }
+  if (/[$£€]\s?[\d,]+(\.\d{1,2})?/.test(text)) return "it contains a currency amount";
+  if (/\d{3,}/.test(text)) return "it contains a long digit run, which suggests record data";
+  return null;
 }
 
 /* ---------------------------------------------------------------- step building */
@@ -191,18 +264,62 @@ function toStep(a: RecordedAction, n: number, input: RecordInput): Step | undefi
         discoveredBecause: a.proposed.reason,
       };
 
-    case "read":
+    case "read": {
+      const g = target ? generaliseVolatileName(target) : { descriptor: undefined, note: undefined };
       return {
         id,
         action: "read",
-        target,
+        target: g.descriptor,
         outputKey: a.proposed.outputKey,
         risk: "safe",
         optional: false,
-        discoveredBecause: a.proposed.reason,
+        discoveredBecause: g.note
+          ? `${a.proposed.reason} [recorder: ${g.note}]`
+          : a.proposed.reason,
       };
+    }
   }
   return undefined;
+}
+
+/**
+ * Volatile-value detection, and why the recorder owns it.
+ *
+ * A discovery model identifies a control by what it can see, and on a data cell what it can
+ * see IS the data. In a real run the model targeted the savings balance as
+ * `cell "$8,241.55"` — correct for the member it was looking at, useless for every other
+ * member. That is the classic record-and-replay failure: recording a value instead of a
+ * locator. It passes the run that created it and fails the first run that matters.
+ *
+ * Catching it is the recorder's job, not the model's. The model's contribution is *which*
+ * thing to read and *where* it sits; deciding how to address that durably is a recording
+ * decision. So when a read target's name looks like data rather than a label, we keep the
+ * structural part of the descriptor — crucially the `within` scope, which is what actually
+ * identifies the row — and relax the name from an exact literal to the shape of the value.
+ *
+ * Deliberately narrow. It only fires on `read` targets and only for shapes that are
+ * unambiguously data. Generalising a genuine label would be a worse bug than the one this
+ * fixes.
+ */
+const VOLATILE_SHAPES: { name: string; test: RegExp; pattern: string }[] = [
+  { name: "currency", test: /^[$£€]\s?-?[\d,]+(\.\d{1,2})?$/, pattern: "^[$£€]\\s?-?[\\d,]+(\\.\\d{1,2})?$" },
+  { name: "number", test: /^-?[\d,]+(\.\d+)?$/, pattern: "^-?[\\d,]+(\\.\\d+)?$" },
+  { name: "iso-date", test: /^\d{4}-\d{2}-\d{2}$/, pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+];
+
+function generaliseVolatileName(
+  d: ElementDescriptor
+): { descriptor: ElementDescriptor; note?: string } {
+  if (!d.name) return { descriptor: d };
+  const shape = VOLATILE_SHAPES.find((s) => s.test.test(d.name!));
+  if (!shape) return { descriptor: d };
+
+  return {
+    descriptor: { ...d, name: shape.pattern, nameMatch: "regex" },
+    note:
+      `recorded name "${d.name}" looked like ${shape.name} data rather than a label, so it was ` +
+      `generalised to a ${shape.name} pattern; the row scope is what identifies this cell`,
+  };
 }
 
 /**

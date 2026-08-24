@@ -16,7 +16,8 @@
  */
 
 import express, { type Request, type Response } from "express";
-import { findMember, money } from "./data.js";
+import { pathToFileURL } from "node:url";
+import { findMember, money, MEMBERS } from "./data.js";
 import * as V from "./views.js";
 
 const PORT = Number(process.env.TARGET_PORT ?? 4471);
@@ -36,6 +37,10 @@ let activeFault: FaultKind = "none";
 let faultBudget = 0; // how many more requests the fault applies to
 
 const app = express();
+app.use((_req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+});
 app.use(express.urlencoded({ extended: false }));
 
 function tenantOf(req: Request): { key: string; label: string; searchLabel: string } {
@@ -70,9 +75,30 @@ app.all("/__fault", (req: Request, res: Response) => {
 
 app.get("/__health", (_req, res) => res.type("text/plain").send("ok\n"));
 
+app.get("/__fixture-summary", (_req, res) => {
+  const accounts = MEMBERS.flatMap((member) => member.accounts);
+  res.json({
+    members: MEMBERS.length,
+    accounts: accounts.length,
+    branches: countBy(MEMBERS.map((member) => member.branch)),
+    accountTypes: countBy(accounts.map((account) => account.type)),
+    accountStates: countBy(accounts.map((account) => account.status)),
+    restrictedMembers: MEMBERS.filter((member) => member.restricted).length,
+  });
+});
+
+app.get("/policy-probe", (_req, res) => {
+  res.send(`<!doctype html><html><head><title>Policy Probe</title></head><body>
+    <h1>Policy Probe</h1>
+    <a href="https://example.com/forbidden">Leave approved application</a>
+    <a href="https://example.com/popup" target="_blank">Open forbidden popup</a>
+  </body></html>`);
+});
+
 app.get("/", (req, res) => {
   const t = tenantOf(req);
-  res.send(V.searchPage(t.label, req.query.error ? String(req.query.error) : undefined));
+  const fault = activeFault === "slow" ? takeFault() : "none";
+  res.send(V.searchPage(t.label, req.query.error ? String(req.query.error) : undefined, fault === "slow" ? 1800 : 0));
 });
 
 app.get("/frame/header", (req, res) => {
@@ -209,9 +235,33 @@ app.post("/members/:id/subaccount/confirm", (req, res) => {
 
 app.use((_req, res) => res.status(404).send(V.appError("Riverbend Credit Union")));
 
-app.listen(PORT, () => {
-  console.log(`target-app listening on http://localhost:${PORT}`);
+export interface TargetServer {
+  origin: string;
+  close(): Promise<void>;
+}
+
+export async function startTargetServer(port = PORT): Promise<TargetServer> {
+  const server = await new Promise<ReturnType<typeof app.listen>>((resolve) => {
+    const instance = app.listen(port, "localhost", () => resolve(instance));
+  });
+  const origin = `http://localhost:${port}`;
+  return {
+    origin,
+    close: () => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
+  };
+}
+
+function countBy(values: string[]): Record<string, number> {
+  return values.reduce<Record<string, number>>((counts, value) => {
+    counts[value] = (counts[value] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  const target = await startTargetServer(PORT);
+  console.log(`target-app listening on ${target.origin}`);
   console.log(`  tenants:  ?tenant=riverbend (base) | ?tenant=summitline (variant)`);
   console.log(`  faults:   GET /__fault?kind=session|apperror|slow|interstitial&times=1`);
-  console.log(`  members:  12345 ok · 22871 ok · 30099 restricted · 44120 frozen acct · 99999 not found`);
-});
+  console.log(`  members:  12345 ok · 22871 ok · 30099 restricted · 44120 no savings · 99999 not found`);
+}

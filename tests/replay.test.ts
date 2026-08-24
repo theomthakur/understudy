@@ -11,6 +11,7 @@
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { WebSurface } from "../src/surface/web-surface.js";
 import { PolicyEngine, DEFAULT_POLICY } from "../src/policy/policy.js";
 import { replay } from "../src/replay/replay.js";
@@ -22,6 +23,9 @@ import { CU_BUSINESS_OUTCOMES, CU_RECOVERIES } from "../src/knowledge.js";
 
 const PORT = Number(process.env.TARGET_PORT ?? 4471);
 const BASE = `http://localhost:${PORT}`;
+// Use the exact host the self-contained server binds. On macOS, `localhost` may
+// resolve to IPv6 while 127.0.0.1 is not covered by that listener.
+const CONTROL_BASE = BASE;
 const EVIDENCE_ROOT = "evidence/test-runs";
 
 let surface: WebSurface;
@@ -33,7 +37,7 @@ before(async () => {
 
 after(async () => {
   await surface?.close();
-  await fetch(`${BASE}/__fault?kind=none`).catch(() => {});
+  await fetch(`${CONTROL_BASE}/__fault?kind=none`).catch(() => {});
 });
 
 /** The read-balance capability, as the recorder would produce it. */
@@ -51,12 +55,12 @@ function readBalanceArtifact(): CapabilityArtifact {
         type: "string",
         required: true,
         description: "Member ID",
-        sensitive: false,
+        sensitive: true,
         pattern: "^\\d{3,10}$",
       },
     ],
     outputs: [
-      { name: "savingsBalance", type: "number", description: "Savings balance", sensitive: false },
+      { name: "savingsBalance", type: "currency", description: "Savings balance", sensitive: true },
     ],
     steps: [
       {
@@ -129,9 +133,8 @@ function readBalanceArtifact(): CapabilityArtifact {
         // currency. That is what a human does, and it holds for any member.
         target: {
           role: "cell",
-          name: "^\\$[0-9,.]+$",
-          nameMatch: "regex",
-          within: { role: "row", hasText: "SAVINGS" },
+          tableCell: { rowLabel: "SAVINGS", columnLabel: "Balance" },
+          nameMatch: "exact",
           frame: { strategy: "main" },
           fallbacks: [],
         },
@@ -167,19 +170,113 @@ function deps() {
   };
 }
 
+function addSubAccountSteps(artifact: CapabilityArtifact, timeoutMs = 1_000): void {
+  artifact.steps.push(
+    {
+      id: "s4",
+      action: "click",
+      target: targetDescriptor("button", "Open Sub-Account"),
+      risk: "safe",
+      optional: false,
+      checkpoint: {
+        kind: "text-present",
+        value: "Confirm New Sub-Account",
+        timeoutMs,
+        description: "confirmation form is showing",
+      },
+    },
+    {
+      id: "s5",
+      action: "type",
+      target: targetDescriptor("textbox", "Sub-Account Nickname"),
+      value: { kind: "literal", value: "Holiday Savings" },
+      risk: "safe",
+      optional: false,
+    },
+    {
+      id: "s6",
+      action: "click",
+      target: targetDescriptor("button", "Confirm and Open"),
+      risk: "irreversible",
+      optional: false,
+      checkpoint: {
+        kind: "text-present",
+        value: "Sub-Account Opened",
+        timeoutMs,
+        description: "application confirms the sub-account was opened",
+      },
+    }
+  );
+  artifact.successCheckpoint = {
+    kind: "text-present",
+    value: "Sub-Account Opened",
+    timeoutMs,
+    description: "sub-account opened",
+  };
+}
+
+function targetDescriptor(role: string, name: string) {
+  return {
+    role,
+    name,
+    nameMatch: "contains" as const,
+    frame: { strategy: "main" as const },
+    fallbacks: [],
+  };
+}
+
+async function waitForIntervention(broker: EscalationBroker) {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const intervention = broker.list().at(-1);
+    if (intervention) return intervention;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error("intervention was not raised in time");
+}
+
+function failureEscalationArtifact(): CapabilityArtifact {
+  return CapabilityArtifactSchema.parse({
+    schemaVersion: "1.0.0",
+    name: "member.open_sub_account_from_search",
+    revision: 1,
+    title: "Open sub-account from search",
+    description: "Test fixture for a target that becomes available after operator repair.",
+    application: { productId: "acme-core-banking", surface: "legacy-web", baseUrl: BASE },
+    inputs: [],
+    outputs: [],
+    steps: [
+      {
+        id: "s0", action: "navigate", value: { kind: "literal", value: BASE }, risk: "safe", optional: false,
+        checkpoint: { kind: "text-present", value: "Member Search", timeoutMs: 500, description: "search page" },
+      },
+      {
+        id: "s1", action: "click", target: targetDescriptor("button", "Open Sub-Account"), risk: "safe", optional: false,
+        checkpoint: { kind: "text-present", value: "Confirm New Sub-Account", timeoutMs: 500, description: "confirmation page" },
+      },
+    ],
+    successCheckpoint: { kind: "text-present", value: "Confirm New Sub-Account", timeoutMs: 500, description: "confirmation page" },
+    approval: { state: "approved", reviewedBy: "test" },
+    provenance: { recordedAt: new Date().toISOString(), goal: "test", discoveryRunId: "test", stepCount: 2 },
+  });
+}
+
 test("happy path: replays deterministically and returns a typed output", async () => {
   const r = await replay(readBalanceArtifact(), { memberId: "12345" }, deps());
   assert.equal(r.status, "ok", `expected ok, got ${r.status}: ${JSON.stringify(r)}`);
   if (r.status !== "ok") return;
-  assert.equal(typeof r.outputs.savingsBalance, "number", "declared number output must be a number");
-  assert.equal(r.outputs.savingsBalance, 8241.55);
+  assert.deepEqual(r.outputs.savingsBalance, { amount: 8241.55, currency: "USD", display: "$8,241.55" });
 });
 
 test("same artifact, different input: no re-recording needed", async () => {
   const r = await replay(readBalanceArtifact(), { memberId: "22871" }, deps());
   assert.equal(r.status, "ok");
   if (r.status !== "ok") return;
-  assert.equal(r.outputs.savingsBalance, 402.19, "parameterisation must actually vary the run");
+  assert.deepEqual(
+    r.outputs.savingsBalance,
+    { amount: 402.19, currency: "USD", display: "$402.19" },
+    "parameterisation must actually vary the run"
+  );
 });
 
 test("replay is stable across repeated runs", async () => {
@@ -192,10 +289,21 @@ test("replay is stable across repeated runs", async () => {
 });
 
 test("BUSINESS OUTCOME: unknown member is an answer, not a failure", async () => {
+  const started = Date.now();
   const r = await replay(readBalanceArtifact(), { memberId: "99999" }, deps());
   assert.equal(r.status, "outcome", `expected a business outcome, got ${r.status}`);
   if (r.status !== "outcome") return;
   assert.equal(r.code, "MEMBER_NOT_FOUND");
+  assert.ok(Date.now() - started < 15_000, "single-shot outcome detection must not inherit act-path polling latency");
+});
+
+test("BUSINESS OUTCOME: a missing savings row bypasses the target polling budget", async () => {
+  const started = Date.now();
+  const r = await replay(readBalanceArtifact(), { memberId: "44120" }, deps());
+  assert.equal(r.status, "outcome");
+  if (r.status !== "outcome") return;
+  assert.equal(r.code, "NO_SAVINGS_ACCOUNT");
+  assert.ok(Date.now() - started < 6_000, "a visible business outcome should be returned before target polling");
 });
 
 test("BUSINESS OUTCOME: restricted record reports permission denied", async () => {
@@ -206,7 +314,7 @@ test("BUSINESS OUTCOME: restricted record reports permission denied", async () =
 });
 
 test("BUSINESS OUTCOME: session expiry is reported, not retried with credentials", async () => {
-  await fetch(`${BASE}/__fault?kind=session&times=1`);
+  await fetch(`${CONTROL_BASE}/__fault?kind=session&times=1`);
   const r = await replay(readBalanceArtifact(), { memberId: "12345" }, deps());
   assert.equal(r.status, "outcome", `expected outcome, got ${r.status}`);
   if (r.status !== "outcome") return;
@@ -214,7 +322,7 @@ test("BUSINESS OUTCOME: session expiry is reported, not retried with credentials
 });
 
 test("RECOVERABLE: an unexpected interstitial is dismissed and the run continues", async () => {
-  await fetch(`${BASE}/__fault?kind=interstitial&times=1`);
+  await fetch(`${CONTROL_BASE}/__fault?kind=interstitial&times=1`);
   const r = await replay(readBalanceArtifact(), { memberId: "12345" }, deps());
   assert.equal(r.status, "ok", `expected recovery then success, got ${r.status}`);
 });
@@ -236,6 +344,19 @@ test("INVALID INPUT: a missing required parameter is caught", async () => {
   assert.match(r.message, /memberId/);
 });
 
+test("DETERMINISM: act-path resolution polls through a transiently late control", async () => {
+  await fetch(`${CONTROL_BASE}/__fault?kind=slow&times=1`);
+  const artifact = readBalanceArtifact();
+  artifact.steps[0]!.checkpoint = {
+    kind: "text-present", value: "Member Search", timeoutMs: 500, description: "search page loaded",
+  };
+  const r = await replay(artifact, { memberId: "12345" }, deps());
+  assert.equal(r.status, "ok");
+  const events = await readFile(r.evidence.logPath, "utf8");
+  assert.match(events, /"event":"target.resolved_after_wait"/);
+  assert.match(events, /"attempts":[2-9]/);
+});
+
 test("HARD FAILURE: a control that no longer exists reports expected vs observed", async () => {
   const artifact = readBalanceArtifact();
   artifact.steps[2]!.target = {
@@ -254,6 +375,18 @@ test("HARD FAILURE: a control that no longer exists reports expected vs observed
   assert.ok(r.evidence.screenshotPath, "a hard failure must leave a screenshot");
 });
 
+test("HARD FAILURE: an unreachable application is distinct from a broken surface", async () => {
+  const artifact = readBalanceArtifact();
+  artifact.steps[0]!.value = { kind: "literal", value: "http://localhost:65534/" };
+  const r = await replay(artifact, { memberId: "12345" }, deps());
+  assert.equal(r.status, "failed");
+  if (r.status !== "failed") return;
+  assert.equal(r.failure, "target_unreachable");
+  assert.equal(r.stepId, "s0");
+  assert.match(r.expected, /reachable/i);
+  assert.match(r.observed, /CONNECTION_REFUSED|ECONNREFUSED/i);
+});
+
 test("POLICY: navigation off the allowlist is denied", async () => {
   const artifact = readBalanceArtifact();
   artifact.steps[0]!.value = { kind: "literal", value: "https://example.com/" };
@@ -266,41 +399,129 @@ test("POLICY: navigation off the allowlist is denied", async () => {
   assert.match(r.message, /allowlist|Policy denied/i);
 });
 
-test("POLICY + ESCALATION: an irreversible step in an approved artifact routes to a human", async () => {
+test("POLICY + ESCALATION: a human acts, releases, and replay resumes to ok", async () => {
   const artifact = readBalanceArtifact();
   artifact.approval = { state: "approved", reviewedBy: "test" };
-  artifact.steps.push({
-    id: "s4",
-    action: "click",
-    target: {
-      role: "button",
-      name: "Open Sub-Account",
-      nameMatch: "contains",
-      frame: { strategy: "main" },
-      fallbacks: [],
-    },
-    risk: "irreversible",
-    optional: false,
-  });
+  addSubAccountSteps(artifact);
 
   const log = new EvidenceLog(newRunId("replay"), new Redactor(), EVIDENCE_ROOT);
   const broker = new EscalationBroker(surface, log, "http://localhost:4472");
-
-  const r = await replay(artifact, { memberId: "12345" }, { ...deps(), escalation: broker });
-
-  assert.equal(r.status, "escalated", `expected escalation, got ${r.status}`);
-  if (r.status !== "escalated") return;
+  const replayPromise = replay(artifact, { memberId: "12345" }, {
+    ...deps(), escalation: broker, handoffWaitMs: 5_000,
+  });
+  const intervention = await waitForIntervention(broker);
   assert.equal(broker.controlHolder, "awaiting_human", "control must be ceded, not just logged");
   assert.equal(surface.isAutomationInControl(), false, "the surface must actually be paused");
 
   // Full round trip: a human claims, works, hands back.
-  broker.claim(r.interventionId, "operator@test");
+  broker.claim(intervention.id, "operator@test");
   assert.equal(broker.controlHolder, "human");
-  const released = await broker.release(r.interventionId, "Opened the sub-account manually.");
+  await broker.humanAction(intervention.id, {
+    kind: "click",
+    target: {
+      role: "button",
+      name: "Confirm and Open",
+      nameMatch: "contains",
+      frame: { strategy: "main" },
+      fallbacks: [],
+    },
+  });
+  const released = await broker.release(intervention.id, "Opened the sub-account manually.");
+  const r = await replayPromise;
   assert.equal(released.state, "released");
   assert.equal(broker.controlHolder, "automation");
   assert.equal(surface.isAutomationInControl(), true, "control must return to automation");
   assert.equal(released.operatorNote, "Opened the sub-account manually.");
+  assert.equal(r.status, "ok", `replay must continue after a verified handoff, got ${r.status}`);
+  assert.ok(r.trace.some((step) => step.status === "human" && step.interventionId === intervention.id));
+
+  const events = await readFile(r.evidence.logPath, "utf8");
+  assert.match(events, /"modelInvocations":0/, "resumed replay must remain zero-model");
+  const ordered = ["control.ceded", "control.claimed", "control.human_action", "control.released", "replay.ok"];
+  let cursor = -1;
+  for (const event of ordered) {
+    const next = events.indexOf(`\"event\":\"${event}\"`);
+    assert.ok(next > cursor, `${event} must appear in handoff order in one event stream`);
+    cursor = next;
+  }
+});
+
+test("ESCALATION: releasing without the human action fails its checkpoint", async () => {
+  const artifact = readBalanceArtifact();
+  artifact.approval = { state: "approved", reviewedBy: "test" };
+  addSubAccountSteps(artifact, 300);
+
+  const log = new EvidenceLog(newRunId("replay"), new Redactor(), EVIDENCE_ROOT);
+  const broker = new EscalationBroker(surface, log, "http://localhost:4472");
+  const replayPromise = replay(artifact, { memberId: "12345" }, {
+    ...deps(), escalation: broker, handoffWaitMs: 5_000,
+  });
+  const intervention = await waitForIntervention(broker);
+  broker.claim(intervention.id, "operator@test");
+  await broker.release(intervention.id, "No action taken.");
+  const r = await replayPromise;
+  assert.equal(r.status, "failed");
+  if (r.status === "failed") assert.equal(r.failure, "checkpoint_failed");
+});
+
+test("ESCALATION: a bounded timeout abandons and returns the surface lease", async () => {
+  const artifact = readBalanceArtifact();
+  artifact.approval = { state: "approved", reviewedBy: "test" };
+  addSubAccountSteps(artifact, 300);
+
+  const log = new EvidenceLog(newRunId("replay"), new Redactor(), EVIDENCE_ROOT);
+  const broker = new EscalationBroker(surface, log, "http://localhost:4472");
+  const r = await replay(artifact, { memberId: "12345" }, {
+    ...deps(), escalation: broker, handoffWaitMs: 30,
+  });
+  assert.equal(r.status, "escalated");
+  if (r.status !== "escalated") return;
+  assert.equal(r.resolution, "abandoned");
+
+  assert.equal(broker.controlHolder, "automation");
+  assert.equal(surface.isAutomationInControl(), true, "abandonment must return the surface lease");
+});
+
+test("FAILURE ESCALATION: no operator repair returns the original failure with linkage", async () => {
+  const log = new EvidenceLog(newRunId("replay"), new Redactor(), EVIDENCE_ROOT);
+  const broker = new EscalationBroker(surface, log, "http://localhost:4472");
+  const replayPromise = replay(failureEscalationArtifact(), {}, {
+    ...deps(), escalation: broker, escalateOnFailure: true, handoffWaitMs: 5_000,
+  });
+  const intervention = await waitForIntervention(broker);
+  broker.claim(intervention.id, "operator@test");
+  await broker.release(intervention.id, "Could not repair the page.");
+  const result = await replayPromise;
+  assert.equal(result.status, "failed");
+  if (result.status !== "failed") return;
+  assert.equal(result.failure, "target_not_found");
+  assert.equal(result.interventionId, intervention.id);
+});
+
+test("FAILURE ESCALATION: operator repairs state and deterministic replay continues", async () => {
+  const log = new EvidenceLog(newRunId("replay"), new Redactor(), EVIDENCE_ROOT);
+  const broker = new EscalationBroker(surface, log, "http://localhost:4472");
+  const replayPromise = replay(failureEscalationArtifact(), {}, {
+    ...deps(), escalation: broker, escalateOnFailure: true, handoffWaitMs: 5_000,
+  });
+  const intervention = await waitForIntervention(broker);
+  broker.claim(intervention.id, "operator@test");
+  await broker.humanAction(intervention.id, {
+    kind: "type",
+    target: { ...targetDescriptor("textbox", "Member ID") },
+    text: "12345",
+  });
+  await broker.humanAction(intervention.id, {
+    kind: "click",
+    target: { ...targetDescriptor("button", "Search") },
+  });
+  await broker.release(intervention.id, "Moved the same session to the member profile.");
+  const result = await replayPromise;
+  assert.equal(result.status, "ok", `operator repair should let replay re-resolve and continue, got ${result.status}`);
+  const events = await readFile(result.evidence.logPath, "utf8");
+  assert.match(events, /"failure":"target_not_found"/);
+  assert.match(events, /"event":"failure.handoff_recovered"/);
+  assert.match(events, /"modelInvocations":0/);
 });
 
 test("POLICY: an unapproved irreversible step is refused outright, not escalated", async () => {

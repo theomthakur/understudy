@@ -1,6 +1,6 @@
 {
-  "location": "http://localhost:4471/workspace?memberId=12345&tenant=riverbend",
-  "title": "Member Workspace 12345",
+  "location": "http://localhost:4471/workspace?memberId=[REDACTED]&tenant=riverbend",
+  "title": "Member Workspace [REDACTED]",
   "notices": [],
   "capturedAt": "2026-08-13T06:07:48.100Z",
   "controls": [
@@ -16,7 +16,7 @@
     },
     {
       "role": "text",
-      "name": "\"Workspace: 12345\"",
+      "name": "\"Workspace: [REDACTED]\"",
       "frame": "hdr"
     },
     {
@@ -31,7 +31,7 @@
     },
     {
       "role": "cell",
-      "name": "Member ID 12345 Name Dana Whitfield Branch Riverside Joined 2016-03-11 SSN ***-**-4417",
+      "name": "Member ID [REDACTED] Name [REDACTED:NAME] Branch Riverside Joined [REDACTED:DATE] SSN [REDACTED:SSN]",
       "frame": "detail"
     },
     {
@@ -41,7 +41,7 @@
     },
     {
       "role": "cell",
-      "name": "12345",
+      "name": "[REDACTED]",
       "frame": "detail"
     },
     {
@@ -51,7 +51,7 @@
     },
     {
       "role": "cell",
-      "name": "Dana Whitfield",
+      "name": "[REDACTED:NAME]",
       "frame": "detail"
     },
     {
@@ -71,7 +71,7 @@
     },
     {
       "role": "cell",
-      "name": "2016-03-11",
+      "name": "[REDACTED:DATE]",
       "frame": "detail"
     },
     {
@@ -81,12 +81,12 @@
     },
     {
       "role": "cell",
-      "name": "***-**-4417",
+      "name": "[REDACTED:SSN]",
       "frame": "detail"
     },
     {
       "role": "cell",
-      "name": "Accounts Account Type Balance Status SV-100241 SAVINGS $8,241.55 OPEN View CK-100242 CHECKING $1,930.08 OPEN View",
+      "name": "Accounts Account Type Balance Status [REDACTED:ACCOUNT] SAVINGS [REDACTED:BALANCE] OPEN View [REDACTED:ACCOUNT] CHECKING [REDACTED:BALANCE] OPEN View",
       "frame": "detail"
     },
     {
@@ -116,7 +116,7 @@
     },
     {
       "role": "cell",
-      "name": "SV-100241",
+      "name": "[REDACTED:ACCOUNT]",
       "frame": "detail"
     },
     {
@@ -126,7 +126,7 @@
     },
     {
       "role": "cell",
-      "name": "$8,241.55",
+      "name": "[REDACTED:BALANCE]",
       "frame": "detail"
     },
     {
@@ -146,7 +146,7 @@
     },
     {
       "role": "cell",
-      "name": "CK-100242",
+      "name": "[REDACTED:ACCOUNT]",
       "frame": "detail"
     },
     {
@@ -156,7 +156,7 @@
     },
     {
       "role": "cell",
-      "name": "$1,930.08",
+      "name": "[REDACTED:BALANCE]",
       "frame": "detail"
     },
     {

@@ -1,0 +1,11 @@
+.git
+.env
+node_modules
+dist
+evidence/runs
+evidence/test-runs
+evidence/.curation-stage
+evidence/stability.json
+scratch
+*.log
+.DS_Store

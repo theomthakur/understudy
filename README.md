@@ -1,190 +1,226 @@
 # Understudy
 
-**A model discovers a flow once. It becomes a typed capability. Every run after that is
-deterministic, with no model in the loop.**
+**An LLM discovers a UI task once. A typed capability performs it afterward with no model in the loop.**
 
-Built for the interface.ai take-home. Design write-up: **[REPORT.md](REPORT.md)**.
+Candidate project for the interface.ai computer-use assignment. The target banking console and every record in it are synthetic.
 
-An understudy learns the part by watching, then performs it without the star.
+- Exact discovery and replay path: see **Reviewer quick start** below
+- Optional visual walkthrough: `npm run app` → http://localhost:4317/studio
+- Design write-up: [REPORT.md](REPORT.md)
+- Curated evidence: [evidence/README.md](evidence/README.md)
+- Main contract: [src/domain/artifact.ts](src/domain/artifact.ts)
 
----
+“Understudy” comes from theatre: an understudy learns a role by observing it, then performs the rehearsed choreography when called. Here, the model learns the part; the saved capability performs the script without improvising.
 
-## What it does
+## Reviewer quick start
 
-Give it a goal in natural language and a legacy back-office app with no API. An LLM works out
-how to do it by reading the accessibility tree — the same thing a screen reader shows a human —
-and driving the UI. The successful run is recorded as a **capability artifact**: typed inputs,
-typed outputs, semantic locators, checkpoints, and declared business outcomes. After that the
-capability replays deterministically, and an AI agent can invoke it by name with typed arguments.
+Requirements: Node 18.18+ and npm.
 
-```
-goal ──▶ LLM discovery ──▶ capability artifact ──▶ deterministic replay ──▶ typed result
-                                    │                       │
-                                    │                       ├─ ok        outputs
-                                    │                       ├─ outcome   MEMBER_NOT_FOUND
-                                    │                       ├─ failed    step, expected, observed
-                                    └── reviewed, approved   └─ escalated human takes the session
-```
-
----
-
-## Quick start
+Install once:
 
 ```bash
-npm install                    # also installs the Chromium Playwright needs
+npm install
 ```
 
-**No API key required, for either path.**
-
-Replay never calls a model. Discovery defaults to the **Codex CLI** over `npx`, which uses your
-existing local ChatGPT authentication — so a genuine model-driven run needs no key in the repo,
-no key in the environment, and nothing to leak. For a project about handling regulated data that
-is a better posture than an API key, not merely a cheaper one.
-
-Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env` to use an API instead.
-
-### 1. Start the stand-in back-office app
+Start the hostile synthetic target in terminal 1:
 
 ```bash
 npm run target
 ```
 
-A deliberately legacy credit-union console on `http://localhost:4471`: frameset, nested layout
-tables, no test IDs, ASP.NET-style ids that carry row indexes. All data is synthetic.
-
-| Member | What it exercises |
-|---|---|
-| `12345` | happy path, two accounts. The member discovery is recorded against. |
-| `22871` | happy path, different balance — proves the recording generalised |
-| `44120` | no savings account at all → `NO_SAVINGS_ACCOUNT` |
-| `30099` | restricted record → `PERMISSION_DENIED` |
-| `99999` | does not exist → `MEMBER_NOT_FOUND` |
-
-### 2. Discovery — the LLM run
+In terminal 2, run the agent on a natural-language goal. The explicit name keeps the committed reference artifact untouched:
 
 ```bash
-npm run discover -- --goal read_savings_balance
-npm run discover -- --goal read_savings_balance --headed    # watch it work
+npm run discover -- \
+  --goal "Look up the supplied member and read the savings balance" \
+  --name member.read_savings_balance_v2 \
+  --input 'memberId:string:sensitive=^\d{3,10}$' \
+  --value memberId=12345 \
+  --output savingsBalance:currency:sensitive \
+  --headed
 ```
 
-Writes `capabilities/member.read_savings_balance.json` and evidence to `evidence/runs/<runId>/`.
-
-### 3. Replay — the production path, no model
+Review and approve the resulting draft, then replay that exact artifact with a different input:
 
 ```bash
-npm run replay -- --capability member.read_savings_balance --memberId 12345
-# ok  member.read_savings_balance@1  outputs={"savingsBalance":8241.55}  1180ms
+npx tsx src/cli.ts approve \
+  --capability member.read_savings_balance_v2 \
+  --by reviewer@example.invalid
+
+npm run replay -- \
+  --capability member.read_savings_balance_v2 \
+  --memberId 22871 \
+  --headed
 ```
 
-**The same capability with a different input.** No re-recording:
+Discovery requires the authenticated Codex CLI or `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` from `.env`. Replay does not require model credentials and has no model fallback.
+
+## Optional visual walkthrough
+
+For a no-credentials review of the committed artifact and genuine discovery evidence:
+
+```bash
+npm run app
+```
+
+Open http://localhost:4317/studio. This starts the Studio and the hostile synthetic target on one public port.
+
+A focused five-minute path:
+
+1. Read **Overview** for the discovery → review → replay contract.
+2. In **Run demo**, invoke `member.read_savings_balance` with:
+   - `22871` → successful typed balance;
+   - `44120` → `NO_SAVINGS_ACCOUNT`;
+   - `30099` → `PERMISSION_DENIED`;
+   - `99999` → `MEMBER_NOT_FOUND`.
+3. Open **Proof** to inspect the approved artifact and committed discovery/replay evidence together.
+4. In **Human review**, start the guarded run, claim the same paused session, complete the explicit human action, and return control. Replay verifies the checkpoint before it finishes.
+
+Replay never needs model credentials. The Studio’s discovery tab shows a committed genuine model run rather than spending a reviewer’s token or requiring their account.
+
+## The vertical slice
+
+```
+natural-language goal
+  → LLM sees screenshot + numbered accessibility candidates
+  → policy-approved actions against the real UI
+  → successful transcript compiled into a draft capability
+  → human approval
+  → deterministic replay with typed inputs/outputs
+  → ok | outcome | failed | escalated
+  → redacted evidence and same-session human handoff
+```
+
+The saved read capability is replayed against a member other than the discovery member and against a second tenant. Its balance target is relational—`SAVINGS × Balance`—rather than a literal value, row number, CSS selector, or volatile ID.
+
+## Additional CLI examples
+
+A preset natural-language discovery (this records the preset name, so use it only when you intend to replace the local draft):
+
+```bash
+npm run discover -- --goal read_savings_balance --headed
+```
+
+A different free-form goal with an explicit reusable contract:
+
+```bash
+npm run discover -- \
+  --goal "Look up the supplied member and read the savings balance" \
+  --name member.read_savings_balance_v2 \
+  --input 'memberId:string:sensitive=^\d{3,10}$' \
+  --value memberId=12345 \
+  --output savingsBalance:currency:sensitive \
+  --headed
+```
+
+The model receives a screenshot and numbered candidates but may act only through a listed candidate ID. New recordings are drafts.
+
+Approve only after reviewing the steps and risk:
+
+```bash
+npx tsx src/cli.ts approve \
+  --capability member.read_savings_balance_v2 \
+  --by reviewer@example.invalid
+```
+
+## Deterministic replay examples
+
+With the target running:
 
 ```bash
 npm run replay -- --capability member.read_savings_balance --memberId 22871
-# ok  ... outputs={"savingsBalance":402.19}
-```
-
-### 4. The interesting part — error and exceptional states
-
-```bash
-# Business outcome, not a crash. Exit code 0; the caller branches on `code`.
 npm run replay -- --capability member.read_savings_balance --memberId 99999
-# outcome  member.read_savings_balance@1  code=MEMBER_NOT_FOUND
-
-npm run replay -- --capability member.read_savings_balance --memberId 30099
-# outcome  ... code=PERMISSION_DENIED
-
-# Injected session timeout mid-run
-curl "http://localhost:4471/__fault?kind=session&times=1"
-npm run replay -- --capability member.read_savings_balance --memberId 12345
-# outcome  ... code=SESSION_EXPIRED
-
-# Injected interstitial — recovered automatically, run continues
-curl "http://localhost:4471/__fault?kind=interstitial&times=1"
-npm run replay -- --capability member.read_savings_balance --memberId 12345
-# ok  ...   (see evidence for recovery.apply)
-
-# Contract violation, caught before the browser is touched
-npm run replay -- --capability member.read_savings_balance --memberId abc
-# FAILED  ... invalid_input
+npm run replay -- --capability member.read_savings_balance --memberId 12345 --tenant summitline
 ```
 
-### 5. Human escalation, taking over the live session
+The replay path contains no model call or model fallback. It validates inputs before browser work, enforces browser-level navigation policy, follows the artifact’s ordered steps, classifies declared business outcomes before failures, applies only bounded recorded recoveries, and verifies checkpoints.
+
+To exercise runtime-failure handoff:
 
 ```bash
-npm run discover -- --goal open_sub_account          # ends at an irreversible step
-tsx src/cli.ts approve --capability member.open_sub_account
-npm run replay -- --capability member.open_sub_account --memberId 12345 --headed
+npm run replay -- \
+  --capability member.read_savings_balance \
+  --memberId 12345 \
+  --headed \
+  --escalate-failures
 ```
 
-Replay reaches the irreversible confirmation, **pauses, and cedes control**. Open the operator
-queue it prints (`http://localhost:4472`), claim the intervention, do the step in the browser
-window that is already open — same session, same cookies — then hand control back.
-
-The automation physically cannot act while you hold control; it throws if it tries.
-
-### 6. Agent-facing catalog
+## Agent-facing catalog
 
 ```bash
 npm run catalog
 ```
 
-Emits the saved capabilities as tool definitions with JSON Schema inputs, declared outputs,
-possible business-outcome codes, and the highest risk class in the flow — so a calling agent can
-decline an irreversible capability without reading its steps.
+This emits approved capabilities as tool definitions with JSON Schema input, declared output, possible business outcomes, and highest risk. A calling agent can choose a capability without reading or changing its deterministic steps.
 
----
-
-## Tests
+## Verification
 
 ```bash
-npm run target        # in one terminal
-npm test              # in another
+npm run check
 ```
 
-36 tests, no model key required.
+This is self-contained: it starts and stops its own target, type-checks the project, runs browser and unit tests, and verifies all curated evidence. Do **not** start `npm run target` separately while running the suite.
 
-| File | Covers |
-|---|---|
-| `tests/surface.test.ts` | a11y parsing, resolving by role+name with no test IDs, crossing a frameset, fallback rescue, control-transfer enforcement |
-| `tests/replay.test.ts` | determinism, parameterisation, all three business outcomes, recovery, invalid input, hard failure detail, allowlist, escalation round-trip, cross-tenant reuse |
-| `tests/recorder.test.ts` | parameterisation correctness, checkpoint attachment, fallback ladder, risk classification, host-allowlist bypasses, redaction |
+The suite covers multimodal constrained discovery contracts, step/run budgets, parameterization, semantic resolution, frames, delayed controls, cross-member and cross-tenant replay, known outcomes, recovery, unreachable targets, browser navigation interception, redaction, approval, human lease enforcement, failure escalation, verified resume, and evidence consistency.
 
----
+To regenerate the named evidence cases:
 
-## Layout
-
-```
-src/domain/artifact.ts      the capability schema — the focal point, read this first
-src/domain/result.ts        ok | outcome | failed | escalated
-src/surface/surface.ts      the seam: observe / resolve / act. No browser types.
-src/surface/web-surface.ts  Playwright + accessibility tree. The only file that knows about a browser.
-src/replay/replay.ts        deterministic execution and the classification loop
-src/discovery/              LLM loop, prompt, and the recorder that hardens a run into an artifact
-src/policy/                 allowlist, risk gates, redaction
-src/escalation/             control-transfer state machine + minimal operator surface
-src/catalog/                artifacts as agent-invocable tools
-target-app/                 the stand-in legacy console
-evidence/                   committed example runs
+```bash
+npm run curate:evidence
+npm run verify:evidence
 ```
 
----
+## Container and live demo
+
+```bash
+docker build -t understudy .
+docker run --rm -p 4317:4317 understudy
+```
+
+Then open http://localhost:4317 and verify http://localhost:4317/healthz.
+
+The included [render.yaml](render.yaml) deploys the same Docker image on Render. A container host is the recommended full-demo target because Chromium and the in-memory intervention lease must remain alive across several HTTP requests. Vercel is suitable for a static reviewer shell, but not this complete stateful browser/handoff process without moving the browser worker, lease state, and evidence storage to external services.
+
+The public demo is intentionally single-session and synthetic. Production requires authenticated operators, a durable lease queue, isolated browser workers, encrypted object storage, a versioned artifact database, and institution retention/access policy.
+
+## Repository map
+
+```
+src/discovery/              bounded LLM loop, multimodal prompt, free-form goal contract
+src/domain/artifact.ts      typed capability schema and artifact hash
+src/replay/replay.ts        deterministic executor and result classification
+src/surface/                accessibility Surface seam and Playwright implementation
+src/policy/                 host/action/risk controls and redaction
+src/escalation/             same-session control lease and operator actions
+src/catalog/                agent-facing tool definitions
+src/studio/                 reviewer server and live demo APIs
+target-app/                 hostile synthetic banking console
+capabilities/               approved reusable artifacts
+evidence/                   genuine discovery and curated replay cases
+scripts/                    self-contained tests, curation, and evidence verification
+```
 
 ## Configuration
 
 ```bash
-ANTHROPIC_API_KEY=...        # or OPENAI_API_KEY (+ OPENAI_BASE_URL for any compatible endpoint)
-UNDERSTUDY_MODEL=            # optional override
-UNDERSTUDY_VERBOSE=1         # stream all events to stdout
+UNDERSTUDY_PROVIDER=codex|anthropic|openai
+UNDERSTUDY_MODEL=...
+CODEX_MODEL=...
+ANTHROPIC_API_KEY=...
+OPENAI_API_KEY=...
+OPENAI_BASE_URL=...
 TARGET_PORT=4471
 OPERATOR_PORT=4472
+PORT=4317
+HOST=127.0.0.1
+UNDERSTUDY_VERBOSE=1
+UNDERSTUDY_PUBLIC_DEMO=1
 ```
 
-Fault injection against the target app, used by the error-path demos and tests:
+Fault injection used by tests and demonstrations:
 
 ```bash
 curl "http://localhost:4471/__fault?kind=session|apperror|slow|interstitial&times=1"
 ```
 
-Two tenants of the same vendor product are available via `?tenant=riverbend` (base) and
-`?tenant=summitline` (variant), which is how the cross-tenant reuse claim in REPORT.md §4 is
-demonstrated.
+No real bank data, credentials, or external banking system is used.

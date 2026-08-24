@@ -1,0 +1,31 @@
+{
+  "status": "outcome",
+  "capability": "member.read_savings_balance",
+  "revision": 1,
+  "code": "PERMISSION_DENIED",
+  "description": "The record is restricted and this operator may not view it.",
+  "outputs": {},
+  "trace": [
+    {
+      "stepId": "s0",
+      "action": "navigate",
+      "risk": "safe",
+      "startedAt": "2026-08-23T18:16:08.864Z",
+      "durationMs": 212,
+      "status": "ok"
+    },
+    {
+      "stepId": "s1",
+      "action": "type",
+      "risk": "safe",
+      "startedAt": "2026-08-23T18:16:09.118Z",
+      "durationMs": 20,
+      "status": "ok"
+    }
+  ],
+  "evidence": {
+    "runId": "replay-20260823T181608-7x4sj",
+    "logPath": "evidence/curated/replay-permission-denied/events.jsonl"
+  },
+  "durationMs": 10603
+}

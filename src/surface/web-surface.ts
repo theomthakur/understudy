@@ -15,22 +15,24 @@
  *    make resolution ambiguous in a way that is painful to debug, so the descriptor says
  *    where to look and the resolver honours it.
  *
- * The browser is launched as a *server* rather than in-process. That is what makes the
- * human-handoff claim real: the operator connects to the same `wsEndpoint`, so they get the
- * same browser, same cookies, same half-filled form — not a fresh session that merely looks
- * similar.
+ * Chromium runs with a persistent context and a loopback-only DevTools endpoint. That makes
+ * the human-handoff claim testable: an operator client connects over CDP and sees the same
+ * context, cookies, frames, and half-filled form rather than a fresh lookalike session.
  */
 
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer } from "node:net";
 import {
   chromium,
   type Browser,
   type BrowserContext,
-  type BrowserServer,
   type Frame,
   type Locator,
   type Page,
 } from "playwright";
-import type { AxNode, Observation, ResolveResult, ResolveTarget, Surface } from "./surface.js";
+import type { AxNode, HumanAction, Observation, ResolveResult, ResolveTarget, Surface } from "./surface.js";
 import { ACTIONABLE_ROLES, INFORMATIONAL_ROLES, parseAriaSnapshot } from "./aria-snapshot.js";
 
 export interface WebSurfaceOptions {
@@ -43,11 +45,16 @@ export interface WebSurfaceOptions {
 export class WebSurface implements Surface {
   readonly kind = "legacy-web" as const;
 
-  private server?: BrowserServer;
   private browser?: Browser;
   private context?: BrowserContext;
   private page?: Page;
+  private cdpEndpoint?: string;
+  private userDataDir?: string;
   private automationInControl = true;
+  private navigationGuard: (url: string) => { allow: boolean; reason?: string } = () => ({ allow: true });
+  private navigationViolation?: string;
+  private readonly humanEvents: unknown[] = [];
+  private pendingResolutionDiagnostic?: { attempts: number; strategy?: string };
   private readonly opts: Required<WebSurfaceOptions>;
 
   constructor(opts: WebSurfaceOptions = {}) {
@@ -59,16 +66,68 @@ export class WebSurface implements Surface {
   }
 
   async start(): Promise<void> {
-    this.server = await chromium.launchServer({ headless: this.opts.headless });
-    // slowMo belongs to the *client* connection, not the server. Worth noting because it
-    // means the pacing is a property of who is driving, which is exactly right here: a
-    // human taking over should not inherit the automation's artificial delay.
-    this.browser = await chromium.connect(this.server.wsEndpoint(), {
+    const cdpPort = await availablePort();
+    this.userDataDir = await mkdtemp(join(tmpdir(), "understudy-browser-"));
+    this.context = await chromium.launchPersistentContext(this.userDataDir, {
+      headless: this.opts.headless,
       slowMo: this.opts.slowMoMs,
+      viewport: { width: 1280, height: 900 },
+      args: [`--remote-debugging-port=${cdpPort}`],
     });
-    this.context = await this.browser.newContext({ viewport: { width: 1280, height: 900 } });
-    this.page = await this.context.newPage();
+    this.browser = this.context.browser() ?? undefined;
+    this.cdpEndpoint = `http://127.0.0.1:${cdpPort}`;
+    await this.context.exposeBinding("__understudyHumanEvent", (_source, event: unknown) => {
+      if (!this.automationInControl) this.humanEvents.push(event);
+    });
+    await this.context.addInitScript(() => {
+      const record = (kind: string, event: Event) => {
+        const target = event.target as HTMLElement | null;
+        const payload = {
+          at: new Date().toISOString(),
+          kind,
+          tag: target?.tagName,
+          label: (target?.innerText || target?.getAttribute("aria-label") || target?.getAttribute("name") || "").slice(0, 80),
+        };
+        void (window as unknown as { __understudyHumanEvent: (value: unknown) => Promise<void> }).__understudyHumanEvent(payload);
+      };
+      document.addEventListener("click", (event) => record("click", event), true);
+      document.addEventListener("change", (event) => record("change", event), true);
+    });
+    // A second CDP client does not reliably trigger Playwright's exposed binding in every
+    // frame. Navigation requests are observed by the owning context, so they provide a
+    // provider-independent audit signal for a human-submitted form without storing fields.
+    this.context.on("request", (request) => {
+      if (this.automationInControl || !request.isNavigationRequest()) return;
+      let destination = "[unavailable]";
+      try {
+        destination = new URL(request.url()).pathname.replace(/\d{3,10}/g, "[REDACTED]");
+      } catch { /* retain the unavailable marker */ }
+      this.humanEvents.push({
+        at: new Date().toISOString(),
+        kind: "navigation",
+        method: request.method(),
+        destination,
+      });
+    });
+    await this.context.route("**/*", async (route) => {
+      const request = route.request();
+      if (request.isNavigationRequest() && request.resourceType() === "document") {
+        const verdict = this.navigationGuard(request.url());
+        if (!verdict.allow) {
+          this.navigationViolation = verdict.reason ?? `Navigation denied: ${request.url()}`;
+          await route.abort("blockedbyclient");
+          return;
+        }
+      }
+      await route.continue();
+    });
+    this.page = this.context.pages()[0] ?? await this.context.newPage();
     this.page.setDefaultTimeout(this.opts.defaultTimeoutMs);
+    this.context.on("page", (popup) => {
+      if (popup === this.page) return;
+      this.navigationViolation = `Popup or new tab blocked by policy: ${popup.url() || "pending navigation"}`;
+      void popup.close();
+    });
   }
 
   private requirePage(): Page {
@@ -190,8 +249,37 @@ export class WebSurface implements Surface {
    * that only passed via the third fallback is a warning about the next run, and losing
    * that signal is how brittle capabilities stay green until they suddenly don't.
    */
-  async resolve(target: ResolveTarget): Promise<ResolveResult> {
+  async resolve(target: ResolveTarget, opts: { deadlineMs?: number } = {}): Promise<ResolveResult> {
+    const deadlineMs = Math.max(0, opts.deadlineMs ?? 0);
+    const deadline = Date.now() + deadlineMs;
+    let attempts = 0;
+    for (;;) {
+      attempts += 1;
+      const result = await this.resolveOnce(target);
+      if (result.found || Date.now() >= deadline) return { ...result, attempts };
+      await new Promise((resolveWait) => setTimeout(resolveWait, 250));
+    }
+  }
+
+  private async resolveOnce(target: ResolveTarget): Promise<ResolveResult> {
     for (const frame of this.framesFor(target)) {
+      if (target.tableCell) {
+        const relational = await this.tableCellLocator(frame, target.tableCell);
+        const count = await relational.count().catch(() => 0);
+        if (count === 1) {
+          return {
+            found: true,
+            strategy: "table-cell",
+            matchCount: 1,
+            handle: relational,
+            bounds: (await relational.boundingBox()) ?? undefined,
+            detail: `${target.tableCell.rowLabel} × ${target.tableCell.columnLabel}`,
+          };
+        }
+        // A relational descriptor is an invariant, not a hint. Falling through to a
+        // generic `cell` lookup can silently read a layout cell from a nested legacy table.
+        continue;
+      }
       const primary = this.roleNameLocator(frame, target);
       if (primary) {
         const count = await primary.count().catch(() => 0);
@@ -203,6 +291,7 @@ export class WebSurface implements Surface {
               strategy: "role-name",
               matchCount: count,
               handle: primary.nth(idx),
+              bounds: (await primary.nth(idx).boundingBox()) ?? undefined,
               detail: `${target.role} "${target.name ?? ""}" in frame ${this.frameLabel(frame)}`,
             };
           }
@@ -219,12 +308,40 @@ export class WebSurface implements Surface {
             strategy: `fallback:${fb.kind}`,
             matchCount: count,
             handle: loc.nth(target.index ?? 0),
+            bounds: (await loc.nth(target.index ?? 0).boundingBox()) ?? undefined,
             detail: fb.note ?? fb.value,
           };
         }
       }
     }
     return { found: false, matchCount: 0, detail: describeTarget(target) };
+  }
+
+  private async tableCellLocator(
+    frame: Frame,
+    relation: { rowLabel: string; columnLabel: string; tableName?: string }
+  ): Promise<Locator> {
+    let tables = frame.locator("table");
+    if (relation.tableName) tables = frame.getByRole("table", { name: relation.tableName });
+    for (let index = 0; index < await tables.count(); index += 1) {
+      const table = tables.nth(index);
+      // Direct-child selectors matter: legacy pages routinely nest layout tables around
+      // data grids. A descendant selector lets the outer table steal the inner grid's
+      // headers and returns the entire profile cell instead of the requested balance.
+      const rows = table.locator(":scope > thead > tr, :scope > tbody > tr, :scope > tr");
+      let column = -1;
+      for (let rowIndex = 0; rowIndex < await rows.count(); rowIndex += 1) {
+        const headers = (await rows.nth(rowIndex).locator(":scope > th, :scope > [role=columnheader]").allInnerTexts().catch(() => []))
+          .map((value) => value.trim().replace(/\s+/g, " "));
+        column = headers.findIndex((header) => header.toLowerCase() === relation.columnLabel.toLowerCase());
+        if (column >= 0) break;
+      }
+      if (column < 0) continue;
+      const row = rows.filter({ hasText: new RegExp(`\\b${escapeRegExp(relation.rowLabel)}\\b`, "i") });
+      if (await row.count() !== 1) continue;
+      return row.locator(":scope > td, :scope > [role=cell]").nth(column);
+    }
+    return frame.locator("__understudy_missing_relational_cell__");
   }
 
   private roleNameLocator(frame: Frame, t: ResolveTarget): Locator | undefined {
@@ -288,8 +405,12 @@ export class WebSurface implements Surface {
 
   private async handleFor(target: ResolveTarget): Promise<Locator> {
     this.assertControl();
-    const r = await this.resolve(target);
+    const r = await this.resolve(target, { deadlineMs: this.opts.defaultTimeoutMs });
     if (!r.found || !r.handle) throw new TargetNotFoundError(describeTarget(target));
+    if (r.matchCount > 1 && target.index === undefined) {
+      throw new Error(`Ambiguous control: ${describeTarget(target)} matched ${r.matchCount} elements`);
+    }
+    this.pendingResolutionDiagnostic = { attempts: r.attempts ?? 1, strategy: r.strategy };
     return r.handle as Locator;
   }
 
@@ -308,6 +429,43 @@ export class WebSurface implements Surface {
   async click(target: ResolveTarget): Promise<void> {
     const loc = await this.handleFor(target);
     await loc.click({ timeout: this.opts.defaultTimeoutMs });
+  }
+
+  async humanAct(action: HumanAction): Promise<void> {
+    if (this.automationInControl) {
+      throw new Error("Human action refused while automation owns the session.");
+    }
+    let role: string | undefined;
+    let label: string | undefined;
+    let textLength: number | undefined;
+
+    if (action.kind === "press") {
+      await this.requirePage().keyboard.press(action.key);
+      label = action.key;
+    } else {
+      const resolved = await this.resolve(action.target, { deadlineMs: this.opts.defaultTimeoutMs });
+      if (!resolved.found || !resolved.handle) throw new TargetNotFoundError(describeTarget(action.target));
+      if (resolved.matchCount > 1 && action.target.index === undefined) {
+        throw new Error(`Ambiguous operator target: ${describeTarget(action.target)} matched ${resolved.matchCount} elements`);
+      }
+      const locator = resolved.handle as Locator;
+      role = action.target.role;
+      label = action.target.name;
+      if (action.kind === "click") {
+        await locator.click({ timeout: this.opts.defaultTimeoutMs });
+      } else {
+        await locator.fill(action.text, { timeout: this.opts.defaultTimeoutMs });
+        textLength = action.text.length;
+      }
+    }
+
+    this.humanEvents.push({
+      at: new Date().toISOString(), kind: action.kind, role, label, textLength, source: "operator-console",
+    });
+  }
+
+  async humanClick(target: ResolveTarget): Promise<void> {
+    await this.humanAct({ kind: "click", target });
   }
 
   async type(target: ResolveTarget, text: string): Promise<void> {
@@ -340,9 +498,25 @@ export class WebSurface implements Surface {
       .catch(() => {});
   }
 
+  async screenshotBuffer(): Promise<Buffer> {
+    return this.requirePage().screenshot({ fullPage: true, type: "png" });
+  }
+
+  setNavigationGuard(guard: (url: string) => { allow: boolean; reason?: string }): void {
+    this.navigationGuard = guard;
+  }
+
+  async assertPolicyBoundary(): Promise<void> {
+    if (!this.navigationViolation) return;
+    const violation = this.navigationViolation;
+    this.navigationViolation = undefined;
+    throw new Error(`Policy denied navigation: ${violation}`);
+  }
+
   /* ---------------------------------------------------------------- control transfer */
 
   async cedeControl(): Promise<void> {
+    this.humanEvents.length = 0;
     this.automationInControl = false;
   }
 
@@ -354,21 +528,31 @@ export class WebSurface implements Surface {
     return this.automationInControl;
   }
 
+  collectHumanEvents(): unknown[] {
+    return [...this.humanEvents];
+  }
+
+  consumeResolutionDiagnostic(): { attempts: number; strategy?: string } | undefined {
+    const diagnostic = this.pendingResolutionDiagnostic;
+    this.pendingResolutionDiagnostic = undefined;
+    return diagnostic;
+  }
+
   /**
    * Where an operator attaches to take over.
    *
-   * This is the real seam. `chromium.connect(endpoint)` from an operator console yields the
-   * same browser, the same context and the same page state — not a lookalike session. In
+   * This is the real seam. `chromium.connectOverCDP(endpoint)` from an operator console sees
+   * the same persistent context and page state — not a lookalike session. In
    * headed mode the human can simply use the window that is already open.
    */
   liveSessionEndpoint(): string | undefined {
-    return this.server?.wsEndpoint();
+    return this.cdpEndpoint;
   }
 
   async close(): Promise<void> {
     await this.context?.close().catch(() => {});
     await this.browser?.close().catch(() => {});
-    await this.server?.close().catch(() => {});
+    if (this.userDataDir) await rm(this.userDataDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -389,8 +573,25 @@ function shortPath(u: string): string {
   }
 }
 
+async function availablePort(): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        reject(new Error("Could not allocate a CDP port"));
+        return;
+      }
+      server.close((error) => error ? reject(error) : resolve(address.port));
+    });
+  });
+}
+
 export function describeTarget(t: ResolveTarget): string {
   const bits = [`role=${t.role}`];
+  if (t.tableCell) bits.push(`tableCell=${t.tableCell.rowLabel}×${t.tableCell.columnLabel}`);
   if (t.name) bits.push(`name~${t.nameMatch}~"${t.name}"`);
   if (t.within)
     bits.push(
@@ -399,4 +600,8 @@ export function describeTarget(t: ResolveTarget): string {
   if (t.index !== undefined) bits.push(`index=${t.index}`);
   bits.push(`frame=${t.frame.strategy}${t.frame.value ? `:${t.frame.value}` : ""}`);
   return bits.join(" ");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

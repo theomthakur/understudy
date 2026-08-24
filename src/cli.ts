@@ -21,11 +21,12 @@ import { record } from "./discovery/recorder.js";
 import { createLlmClient, MissingKeyError } from "./discovery/llm.js";
 import { replay } from "./replay/replay.js";
 import { summarize } from "./domain/result.js";
-import { parseArtifact, type CapabilityArtifact } from "./domain/artifact.js";
+import { computeArtifactHash, parseArtifact, type CapabilityArtifact } from "./domain/artifact.js";
 import { EscalationBroker } from "./escalation/escalation.js";
 import { startOperatorServer } from "./escalation/operator-server.js";
 import { CapabilityCatalog } from "./catalog/catalog.js";
 import { CU_BUSINESS_OUTCOMES, CU_RECOVERIES, cuTenantOverlays } from "./knowledge.js";
+import { parseFreeFormGoal, type CliArgs } from "./discovery/goal-spec.js";
 
 loadEnv();
 
@@ -34,7 +35,7 @@ const TARGET_PORT = Number(process.env.TARGET_PORT ?? 4471);
 const OPERATOR_PORT = Number(process.env.OPERATOR_PORT ?? 4472);
 const BASE_URL = `http://localhost:${TARGET_PORT}`;
 
-type Args = Record<string, string | boolean>;
+type Args = CliArgs;
 
 function parseArgs(argv: string[]): { cmd: string; args: Args } {
   const cmd = argv[0] ?? "help";
@@ -43,9 +44,14 @@ function parseArgs(argv: string[]): { cmd: string; args: Args } {
     const a = argv[i]!;
     if (!a.startsWith("--")) continue;
     const eq = a.indexOf("=");
-    if (eq > 0) args[a.slice(2, eq)] = a.slice(eq + 1);
-    else if (argv[i + 1] && !argv[i + 1]!.startsWith("--")) args[a.slice(2)] = argv[++i]!;
-    else args[a.slice(2)] = true;
+    const key = eq > 0 ? a.slice(2, eq) : a.slice(2);
+    const value: string | boolean = eq > 0
+      ? a.slice(eq + 1)
+      : argv[i + 1] && !argv[i + 1]!.startsWith("--") ? argv[++i]! : true;
+    const prior = args[key];
+    if (prior === undefined) args[key] = value;
+    else if (Array.isArray(prior)) prior.push(String(value));
+    else args[key] = [String(prior), String(value)];
   }
   return { cmd, args };
 }
@@ -87,16 +93,16 @@ const PRESETS: Record<
         type: "string",
         required: true,
         description: "The member's ID number as shown in the console",
-        sensitive: false,
+        sensitive: true,
         pattern: "^\\d{3,10}$",
       },
     ],
     outputs: [
       {
         name: "savingsBalance",
-        type: "number",
+        type: "currency",
         description: "Current balance of the member's savings account, in dollars",
-        sensitive: false,
+        sensitive: true,
       },
     ],
     sampleValues: { memberId: "12345" },
@@ -116,7 +122,7 @@ const PRESETS: Record<
         type: "string",
         required: true,
         description: "The member's ID number",
-        sensitive: false,
+        sensitive: true,
         pattern: "^\\d{3,10}$",
       },
     ],
@@ -128,15 +134,27 @@ const PRESETS: Record<
 /* ------------------------------------------------------------------ commands */
 
 async function cmdDiscover(args: Args): Promise<void> {
-  const presetKey = String(args.goal ?? "read_savings_balance");
-  const preset = PRESETS[presetKey];
-  if (!preset) {
-    fail(`Unknown goal "${presetKey}". Available: ${Object.keys(PRESETS).join(", ")}`);
-  }
-
-  const inputValues = { ...preset.sampleValues };
-  for (const p of preset.inputs) {
-    if (args[p.name] !== undefined) inputValues[p.name] = String(args[p.name]);
+  const rawGoal = argString(args, "goal") ?? "read_savings_balance";
+  const preset = PRESETS[rawGoal];
+  const usePreset = !!preset && !args.name && !args.input && !args.output && !args.value;
+  let spec;
+  if (usePreset) {
+    const inputValues = { ...preset.sampleValues };
+    for (const p of preset.inputs) {
+      const value = argString(args, p.name);
+      if (value !== undefined) inputValues[p.name] = value;
+    }
+    spec = { ...preset, inputValues, derivedName: false };
+  } else {
+    try {
+      spec = parseFreeFormGoal(args);
+    } catch (error) {
+      fail(error instanceof Error ? error.message : String(error));
+    }
+    if (spec.derivedName) console.warn(`derived capability name: ${spec.name}`);
+    if (spec.inputs.length === 0) {
+      console.warn("warning: no inputs declared; the recorded artifact will not be parameterised");
+    }
   }
 
   let llm;
@@ -149,7 +167,7 @@ async function cmdDiscover(args: Args): Promise<void> {
 
   const runId = newRunId("discover");
   const redactor = new Redactor();
-  for (const p of preset.inputs) if (p.sensitive) redactor.addSecret(inputValues[p.name]);
+  for (const p of spec.inputs) if (p.sensitive) redactor.addSecret(spec.inputValues[p.name]);
   const log = new EvidenceLog(runId, redactor);
 
   const surface = new WebSurface({
@@ -157,44 +175,61 @@ async function cmdDiscover(args: Args): Promise<void> {
     slowMoMs: args.headed ? 250 : 0,
   });
   await surface.start();
-
+  const discoveryBroker = new EscalationBroker(surface, log, `http://localhost:${OPERATOR_PORT}`);
+  const discoveryWaitSeconds = Number(argString(args, "escalation-wait") ?? 0);
+  if (!Number.isFinite(discoveryWaitSeconds) || discoveryWaitSeconds < 0) fail("--escalation-wait must be zero or a positive number of seconds");
   const policy = new PolicyEngine({ ...DEFAULT_POLICY, maxSteps: 40 });
+  const discoveryTimeoutSeconds = Number(argString(args, "timeout") ?? policy.config.maxRunMs / 1000);
+  if (!Number.isFinite(discoveryTimeoutSeconds) || discoveryTimeoutSeconds <= 0) fail("--timeout must be a positive number of seconds");
+  const discoveryOperator = discoveryWaitSeconds > 0
+    ? await startOperatorServer(discoveryBroker, OPERATOR_PORT).catch(() => undefined)
+    : undefined;
+
   const startUrl = String(args.url ?? BASE_URL);
 
-  console.log(`\ndiscovery  goal=${presetKey}  model=${llm.modelId}  run=${runId}`);
-  console.log(`           start=${startUrl}  inputs=${JSON.stringify(inputValues)}\n`);
+  console.log(`\ndiscovery  goal=${JSON.stringify(spec.goal)}  model=${llm.modelId}  run=${runId}`);
+  console.log(`           name=${spec.name}  start=${startUrl}  inputs=${JSON.stringify(Object.keys(spec.inputValues))}\n`);
 
   try {
     const result = await discover(
       {
-        goal: preset.goal,
+        goal: spec.goal,
         startUrl,
-        inputs: preset.inputs,
-        outputs: preset.outputs,
-        inputValues,
+        inputs: spec.inputs,
+        outputs: spec.outputs,
+        inputValues: spec.inputValues,
+        maxRunMs: discoveryTimeoutSeconds * 1000,
       },
-      { surface, policy, llm, log }
+      {
+        surface,
+        policy,
+        llm,
+        log,
+        escalation: discoveryBroker,
+        escalationWaitMs: discoveryWaitSeconds * 1000,
+      }
     );
 
     if (!result.success) {
       await surface.screenshot(log.screenshotPath("discovery-incomplete"));
       log.error("discovery.incomplete", { reason: result.reason });
       console.log(`\ndiscovery did not complete: ${result.reason}`);
+      if (result.interventionId) console.log(`intervention: ${result.interventionId}`);
       console.log(`evidence: ${log.dir}`);
       process.exitCode = 1;
       return;
     }
 
     const artifact = record({
-      name: preset.name,
-      title: preset.title,
-      description: preset.description,
+      name: spec.name,
+      title: spec.title,
+      description: spec.description,
       productId: "acme-core-banking",
       baseUrl: BASE_URL,
       startUrl,
-      inputs: preset.inputs,
-      outputs: preset.outputs,
-      inputValues,
+      inputs: spec.inputs,
+      outputs: spec.outputs,
+      inputValues: spec.inputValues,
       discovery: result,
       runId,
       businessOutcomes: CU_BUSINESS_OUTCOMES,
@@ -211,6 +246,7 @@ async function cmdDiscover(args: Args): Promise<void> {
     console.log(`          approval=${artifact.approval.state} (irreversible steps stay gated until approved)`);
     console.log(`evidence: ${log.dir}\n`);
   } finally {
+    await discoveryOperator?.close();
     await surface.close();
   }
 }
@@ -239,29 +275,48 @@ async function cmdReplay(args: Args): Promise<void> {
   // operator queue serves a different object from the one holding the intervention.
   const broker = new EscalationBroker(surface, brokerLog, `http://localhost:${OPERATOR_PORT}`);
   const operator = await startOperatorServer(broker, OPERATOR_PORT).catch(() => undefined);
+  const handoffSeconds = args["handoff-wait"] === undefined ? 120 : Number(args["handoff-wait"]);
+  if (!Number.isFinite(handoffSeconds) || handoffSeconds <= 0) {
+    fail("--handoff-wait must be a positive number of seconds");
+  }
+  const stabilityRuns = Number(argString(args, "stability") ?? 1);
+  if (!Number.isInteger(stabilityRuns) || stabilityRuns < 1 || stabilityRuns > 50) {
+    fail("--stability must be an integer from 1 to 50");
+  }
+  if (stabilityRuns > 1 && artifact.steps.some((step) => step.risk === "irreversible")) {
+    fail("Stability runs refuse irreversible capabilities");
+  }
 
   try {
-    const result = await replay(artifact, inputs, {
-      surface,
-      policy: new PolicyEngine(DEFAULT_POLICY),
-      attended: !!args.attended,
-      tenantId: args.tenant ? String(args.tenant) : undefined,
-      escalation: broker,
-    });
-
-    console.log("\n" + summarize(result));
-    console.log(`evidence: evidence/runs/${result.evidence.runId}\n`);
-
-    if (result.status === "escalated") {
-      console.log(`The run is paused and the live session is held for a human.`);
-      console.log(`Operator queue: ${result.handoffUrl}`);
-      if (args.headed) console.log(`The browser window is open — that is the session to work in.`);
-      console.log(`Waiting up to 120s for control to be handed back...`);
-      const req = await broker.waitForRelease(result.interventionId, 120_000);
-      console.log(`intervention ${req.id} -> ${req.state}${req.operatorNote ? `  note="${req.operatorNote}"` : ""}\n`);
+    const results = [];
+    for (let index = 0; index < stabilityRuns; index += 1) {
+      const result = await replay(artifact, inputs, {
+        surface,
+        policy: new PolicyEngine(DEFAULT_POLICY),
+        attended: !!args.attended,
+        tenantId: argString(args, "tenant"),
+        escalation: broker,
+        handoffWaitMs: handoffSeconds * 1000,
+        escalateOnFailure: !!args["escalate-failures"],
+      });
+      results.push(result);
+      console.log("\n" + summarize(result));
+      console.log(`evidence: evidence/runs/${result.evidence.runId}`);
     }
 
-    process.exitCode = result.status === "failed" ? 1 : 0;
+    if (stabilityRuns > 1) {
+      const summary = {
+        runs: stabilityRuns,
+        okCount: results.filter((result) => result.status === "ok").length,
+        // Count only: saving the distinct output values would defeat sensitive-output policy.
+        distinctOutputs: new Set(results.filter((result) => result.status === "ok").map((result) => JSON.stringify(result.outputs))).size,
+      };
+      mkdirSync("evidence", { recursive: true });
+      writeFileSync("evidence/stability.json", JSON.stringify(summary, null, 2) + "\n", "utf8");
+      console.log(`\nstability: ${JSON.stringify(summary)}  evidence/stability.json\n`);
+    }
+
+    process.exitCode = results.some((result) => result.status === "failed") ? 1 : 0;
   } finally {
     await operator?.close();
     await surface.close();
@@ -290,6 +345,7 @@ function cmdApprove(args: Args): void {
     reviewedAt: new Date().toISOString(),
     note: String(args.note ?? "Reviewed steps, locators and risk classification."),
   };
+  artifact.artifactHash = computeArtifactHash(artifact);
   writeFileSync(path, JSON.stringify(artifact, null, 2), "utf8");
   console.log(`approved  ${artifact.name}@${artifact.revision}  by ${artifact.approval.reviewedBy}`);
 }
@@ -308,13 +364,13 @@ understudy — computer-use automation with deterministic replay
 
   npm run target                                   start the stand-in back-office app
 
-  npm run discover -- --goal read_savings_balance [--memberId 12345] [--headed]
+  npm run discover -- --goal read_savings_balance [--memberId 12345] [--headed] [--timeout 180]
   npm run discover -- --goal open_sub_account     [--headed]
 
   npm run replay -- --capability member.read_savings_balance --memberId 22871
   npm run replay -- --capability member.read_savings_balance --memberId 99999   # business outcome
   npm run replay -- --capability member.read_savings_balance --memberId 30099   # permission denied
-  npm run replay -- --capability member.open_sub_account --memberId 12345 --headed  # escalation
+  npm run replay -- --capability member.open_sub_account --memberId 12345 --headed --handoff-wait 120
 
   npm run catalog                                  agent-invocable tool definitions
   tsx src/cli.ts approve --capability member.open_sub_account
@@ -328,6 +384,13 @@ Fault injection against the target app:
 function fail(msg: string): never {
   console.error(`\n${msg}\n`);
   process.exit(1);
+}
+
+function argString(args: Args, key: string): string | undefined {
+  const value = args[key];
+  if (value === undefined || value === true || value === false) return undefined;
+  if (Array.isArray(value)) return value.at(-1);
+  return value;
 }
 
 const { cmd, args } = parseArgs(process.argv.slice(2));

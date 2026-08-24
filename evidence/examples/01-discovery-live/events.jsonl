@@ -2,8 +2,8 @@
 {"ts":"2026-08-13T06:07:36.218Z","level":"info","event":"discovery.proposed","step":1,"action":"type","target":"Member ID","reason":"Enter the provided member ID into the search field."}
 {"ts":"2026-08-13T06:07:36.460Z","level":"info","event":"discovery.executed","step":1,"action":"type","strategy":"role-name","matchCount":1,"location":"http://localhost:4471/"}
 {"ts":"2026-08-13T06:07:42.773Z","level":"info","event":"discovery.proposed","step":2,"action":"click","target":"Search","reason":"Submit the entered member ID to find the member profile."}
-{"ts":"2026-08-13T06:07:45.569Z","level":"info","event":"discovery.executed","step":2,"action":"click","strategy":"role-name","matchCount":1,"location":"http://localhost:4471/workspace?memberId=12345&tenant=riverbend"}
-{"ts":"2026-08-13T06:07:55.193Z","level":"info","event":"discovery.proposed","step":3,"action":"read","target":"$8,241.55","reason":"Capture the balance from the account row identified as SAVINGS."}
-{"ts":"2026-08-13T06:07:57.945Z","level":"info","event":"discovery.executed","step":3,"action":"read","strategy":"role-name","matchCount":1,"location":"http://localhost:4471/workspace?memberId=12345&tenant=riverbend"}
+{"ts":"2026-08-13T06:07:45.569Z","level":"info","event":"discovery.executed","step":2,"action":"click","strategy":"role-name","matchCount":1,"location":"http://localhost:4471/workspace?memberId=[REDACTED]&tenant=riverbend"}
+{"ts":"2026-08-13T06:07:55.193Z","level":"info","event":"discovery.proposed","step":3,"action":"read","target":"[REDACTED:BALANCE]","reason":"Capture the balance from the account row identified as SAVINGS."}
+{"ts":"2026-08-13T06:07:57.945Z","level":"info","event":"discovery.executed","step":3,"action":"read","strategy":"role-name","matchCount":1,"location":"http://localhost:4471/workspace?memberId=[REDACTED]&tenant=riverbend"}
 {"ts":"2026-08-13T06:08:06.283Z","level":"info","event":"discovery.proposed","step":4,"action":"done","reason":"The member profile is open and the SAVINGS balance has been captured."}
 {"ts":"2026-08-13T06:08:08.816Z","level":"info","event":"discovery.done","reason":"The member profile is open and the SAVINGS balance has been captured."}

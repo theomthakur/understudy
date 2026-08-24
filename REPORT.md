@@ -1,362 +1,128 @@
 # Understudy — design write-up
 
-An understudy learns the part by watching, then performs it without the star. That is the whole
-system: a model discovers a flow once, the flow becomes a typed capability, and every
-subsequent invocation runs deterministically with no model in the loop.
-
----
-
 ## 1. Architecture
 
-Five modules, one seam that matters.
+Understudy learns a task inside software that has no API, compiles the successful run into a reusable capability, and executes that capability later without a model.
+
+There are two intentionally different paths:
 
 ```
-   goal + params                                    agent invocation
-        │                                                  │
-        ▼                                                  ▼
-  ┌───────────┐   records    ┌──────────────┐   loads   ┌────────┐
-  │ discovery │─────────────▶│  capability  │◀──────────│ replay │
-  │  (LLM)    │              │   artifact   │           │ (no LLM)│
-  └─────┬─────┘              └──────────────┘           └───┬────┘
-        │                                                    │
-        └────────────┬──────────────┬────────────────────────┘
-                     ▼              ▼
-                ┌─────────┐   ┌──────────┐
-                │ policy  │   │ Surface  │◀── the seam
-                └─────────┘   └────┬─────┘
-                                   │
-                          ┌────────┴────────┐
-                     WebSurface        (DesktopSurface)
-                    a11y tree via        platform a11y
-                     Playwright            APIs — not built
-                                   │
-                            ┌──────┴──────┐
-                            │ escalation  │ pause / cede / resume
-                            └─────────────┘
+natural-language goal
+  → observe screenshot + numbered accessibility candidates
+  → LLM proposes one candidate-bound action
+  → policy validates and the Surface acts
+  → Recorder compiles the successful run
+  → draft capability → human review → approved catalog
+
+typed capability invocation
+  → validate inputs
+  → apply tenant overlay
+  → resolve semantic target → act → verify checkpoint
+  → ok | declared business outcome | failed | escalated
+  → redacted evidence
 ```
 
-**`Surface` is the only abstraction that earns its keep.** Everything above it — the artifact
-schema, the replay engine, the policy layer, the discovery agent — is written against three
-operations: *observe*, *resolve*, *act*. None of them import Playwright or know a browser
-exists. A desktop implementation is a new class here and nothing else moves. That claim is the
-load-bearing part of §4, so it is worth being precise: `src/surface/surface.ts` has no
-browser-specific type in it, and `WebSurface` is the only file that imports Playwright.
+The discovery path is agentic: the model observes, reasons, and chooses the next action. It is bounded by action, step, and wall-clock budgets. A screenshot provides visual context, while numbered accessibility candidates constrain what the model may operate. The runtime ignores invented coordinates and selectors.
 
-**Key decisions and their trade-offs**
+The production replay path is deterministic. It has no LLM client import, prompt, or model fallback. It executes the artifact’s ordered steps and classifies the observed state in a fixed order: declared business outcome, bounded recovery, checkpoint, then failure. Every curated replay records `modelInvocations: 0`.
 
-| Decision | Why | What it costs |
-|---|---|---|
-| **Perceive via accessibility tree, not DOM** | It is what a human operator perceives, it survives markup with no test IDs, and it is the one representation that also exists on desktop | Loses information a DOM would give — computed styles, exact geometry. Fine here; it would not be fine for a pixel-level task. |
-| **Discovery and replay share one policy engine** | A model that tries something dangerous during discovery is stopped by the same code that would stop it in production. Two policy implementations would drift, and the one that drifts is the one nobody tests. | Discovery is slightly more constrained than a pure exploration agent would be. Deliberate. |
-| **Local stand-in app rather than a public demo site** | The interesting failures here are runtime states, not layout drift. I need to *cause* a permission denial, a session timeout, a not-found. No public site allows that, and automating one for this would be a terms-of-service problem. | The app is mine, so it cannot surprise me. Mitigated by making it genuinely hostile: frameset, nested layout tables, no test IDs, index-bearing ASP.NET-style ids. |
-| **TypeScript + Zod** | One schema definition yields the type, runtime validation, and the JSON Schema the agent-facing catalog needs. Given the artifact is the focal point, having one source of truth for it mattered more than language preference. | Node's browser-automation ecosystem is good; its desktop-automation ecosystem is weaker than Python's. If desktop were the first target rather than the second, I would revisit. |
-| **No agent framework** | The loop needs one thing from a model: given this observation, return the next action as JSON. A framework would add a dependency, a lifecycle, and a debugging surface for something that is forty lines. | Reimplementing anything a framework would have given later. Accepted; there is one graph. |
-| **Single process, synchronous** | The brief says building scaling infrastructure is not rewarded. A queue here would be ceremony. | Not production-shaped. The seams that would matter (broker, catalog) are interfaces, so adding a queue behind them is not a rewrite. |
+`Surface` is the portability seam. Discovery, replay, policy, artifacts, and escalation depend on observe/resolve/act—not Playwright or the DOM. `WebSurface` implements this with accessibility roles, names, relational table cells, explicit frames, and a browser-request navigation guard. A desktop implementation would supply the same interface through Windows UI Automation or macOS Accessibility APIs.
 
----
+The target is a deliberately hostile synthetic banking console: frameset navigation, nested layout tables, volatile ASP.NET-style IDs, no test IDs, tenant relabeling, and reproducible failure controls. It is local because the assignment’s important states—permission denial, missing record, session expiry, delayed controls, interstitial recovery, and hard failure—must be safe and deterministic.
 
 ## 2. Artifact schema
 
-`src/domain/artifact.ts`. Four properties drove the shape.
+The artifact is a contract, not a macro recording. The Zod schema validates:
 
-**It is a contract, not a recording.** A calling agent needs to know what the capability
-requires, what it returns, and how success is judged. So `inputs`, `outputs` and
-`successCheckpoint` are declared separately from `steps`, and steps reference inputs by name
-rather than embedding literals. A step list alone is a macro; this is a function signature.
+- identity: stable name, schema version, revision, product and supported surface;
+- typed inputs and outputs, including sensitivity and input validation;
+- ordered discriminated action steps;
+- semantic element descriptors and ordered fallbacks;
+- a checkpoint for every state-changing step and a final success checkpoint;
+- declared business outcomes and bounded recovery rules;
+- per-step risk, approval state, and policy snapshot;
+- tenant overlays, discovery provenance, and an executable-contract hash.
 
-**Targeting is semantic, never syntactic.** A step stores `{ role, name, nameMatch, within,
-frame }` plus an ordered fallback ladder. **It never stores a CSS selector or an element id**,
-and in this app that is not squeamishness: the ids look like
-`ctl00_MainPlaceHolder_grdAccounts_ctl03_lnkView`. That `ctl03` is a row index. Recording it
-gives you a locator that passes today and silently targets the wrong account the day a row is
-inserted — the worst failure mode available, because it is wrong rather than broken.
+Values are either literals or typed parameter references. During recording, a typed value equal to a declared discovery input becomes a parameter reference. The recorder does not generalize values merely because they look similar.
 
-**`within.hasText` exists because of a specific problem, and it is the piece I would point at
-first.** The accounts grid sits inside a nested layout table, so the outer `<td>` wrapping the
-grid is *itself* a `cell`. "The cell containing a dollar amount" matches the wrapper before the
-real one. The row cannot be addressed by name either, because a row's accessible name includes
-the balance — the very value that varies per member. The answer is to scope to the row that
-mentions a stable word and then match the cell:
+The real discovery run exposed a harder problem: the model read a balance cell by its literal currency text. That would pin replay to one member. The recorder now recognizes volatile value shapes, removes value-shaped fallbacks, and converts the target to the relational descriptor “the Balance column in the row containing SAVINGS.” The same artifact is tested against a different member and a second tenant.
 
-```json
-{ "role": "cell", "name": "^\\$[0-9,.]+$", "nameMatch": "regex",
-  "within": { "role": "row", "hasText": "SAVINGS" } }
-```
+Capabilities leave discovery as `draft`. Approval records reviewer identity and time and recomputes the artifact hash. An unapproved irreversible capability is refused; escalation is not a substitute for review.
 
-That is what a human does, and it holds for any member. It is also the thing that took the
-longest to get right, and the reason the schema has a `within` at all.
+## 3. Determinism & error handling
 
-**Business outcomes and recoveries live in the artifact, not in replay code.** `MEMBER_NOT_FOUND`
-is data, with a detection rule and a code the caller branches on. Putting it in code would mean
-every new application needs a code change; putting it in the artifact means it is reviewable
-alongside the flow it belongs to.
+Replay performs the same ordered steps for the same artifact. Target resolution uses a confidence ladder: relational table invariant, exact role and accessible name, scoped role/name, then explicit fallbacks. Act-path resolution polls every 250 ms only within a bounded timeout, and evidence records when a late control required multiple attempts. Known visible business outcomes bypass that polling budget.
 
-**What is deliberately *not* in the artifact:** the model transcript. `provenance.transcriptRef`
-points at the evidence file instead. The artifact is the reviewed, executable contract; the
-transcript is how it came to exist. Conflating them would make artifacts unreviewable and would
-tempt replay into reading model prose at run time.
+Each mutation is followed by a checkpoint. A click succeeding is not evidence that the intended state was reached. After every state-changing action, the browser-level navigation guard is rechecked before the executor continues. Redirects, frames, click-triggered navigation, and popups cannot leave the allowlist unnoticed.
 
-**Versioning** is two-level: `schemaVersion` for the format, `revision` for the artifact's own
-content, so a capability can be re-recorded or hand-corrected with history.
+The result contract has four arms: three terminal execution results and one non-terminal/pending handoff state.
 
----
+- `ok`: final checkpoint holds and all declared outputs exist.
+- `outcome`: the application produced a known business answer such as `MEMBER_NOT_FOUND`, `NO_SAVINGS_ACCOUNT`, `PERMISSION_DENIED`, or `SESSION_EXPIRED`.
+- `failed`: invalid input, policy denial, target drift, unreachable application, surface error, exhausted recovery, checkpoint failure, or timeout, with expected-versus-observed detail and evidence.
+- `escalated`: a human owns or abandoned a still-live intervention.
 
-## 3. Determinism and error handling
+Recoveries are explicit artifact data with attempt limits; replay never asks a model to improvise. Runtime breakage may be offered to an operator. After release, replay makes exactly one deterministic re-resolution or checkpoint verification before continuing or returning the original failure with intervention linkage.
 
-**How replay is deterministic.** No model call on any path — not for decisions, not for
-recovery, not for locating a control. Locators resolve through a fixed ladder in a fixed order.
-Every state-changing step carries a checkpoint, so the engine asserts it arrived rather than
-assuming the click worked. Inputs are validated against the declared contract before the
-browser is touched, so a contract violation costs nothing. Same artifact, same inputs, same app
-state produces the same steps and the same outputs; there is a test that runs a capability twice
-and asserts the outputs are identical.
+## 4. Heterogeneity & multi-tenant
 
-**The classification loop is the actual design.** After every step, before concluding anything
-is wrong, the engine asks in this order:
+Semantic accessibility descriptors work on conventional web pages, framesets, and native desktop accessibility trees. The target proves frames and nested tables rather than only a clean SPA. Coordinates are retained only as discovery evidence, never as the primary locator.
 
-1. **Is this a declared business outcome?** → return `outcome`, not an error
-2. **Is this a known recoverable condition?** → remedy it, bounded, retry the step
-3. **Did the checkpoint pass?** → continue
-4. **Otherwise** → `failed`, with expected vs observed
+Tenant reuse is modeled as one base artifact plus small, reviewable overlays for entry URLs and descriptor relabeling. The same balance capability replays on Riverbend and Summitline, where “Member ID” becomes “Member Number,” without re-recording.
 
-**The ordering is the point.** Checking business outcomes first is what stops "no such member"
-being reported as a broken capability. The brief calls conflating those two the most common
-design mistake here, so it is a first-class type rather than a convention:
+At production scale, API nodes would remain stateless while browser sessions are assigned to isolated workers. Artifacts belong in a versioned database; events in an append-only log; screenshots in encrypted object storage; and interventions in a durable lease queue. Workers scale by active session count, not tenant count. Tenant overlays absorb configuration drift; materially different workflows become separate artifact revisions.
 
-```ts
-type ReplayResult = OkResult | OutcomeResult | FailedResult | EscalatedResult
-```
+The candidate deployment remains one container so a reviewer can run the full vertical slice. The architecture does not claim the in-memory broker or local evidence filesystem is a distributed production control plane.
 
-`escalated` is a fourth arm rather than a failure because a run waiting on a human is neither
-finished nor broken, and collapsing it into `failed` would lose the distinction between "this
-needs a person" and "this is wrong".
+## 5. Escalation & handoff
 
-**The three classes, concretely, all covered by tests:**
-
-| Class | Example | Behaviour |
-|---|---|---|
-| Business outcome | member 99999 does not exist · member 30099 is restricted · session expired | `outcome` with a code the caller branches on |
-| Recoverable | maintenance interstitial covering the profile | remedy applied, step retried, bounded by `maxAttempts`, run continues |
-| Hard failure | a control that no longer exists · policy denial · invalid input | `failed` with the step id, what was expected, what was observed, plus a screenshot |
-
-**Bounded recovery.** Every recovery rule has `maxAttempts`. Exceeding it produces
-`recovery_exhausted` rather than looping — an unbounded self-healing loop is a worse failure
-than the condition it was healing.
-
-**Session expiry is terminal on purpose.** It looks recoverable, and it is not something
-automation should fix by re-authenticating with stored credentials. It is reported to the
-caller.
-
-**On UI drift**, which the brief rightly ranks second: the fallback ladder degrades rather than
-failing. Primary is role + exact name; beneath it, the same role with a substring match, then a
-label association, then visible text — each annotated with why it is weaker. The winning
-strategy is reported in the result, so a run that only passed via the third fallback shows up in
-evidence as a warning about the next run. Losing that signal is how brittle capabilities stay
-green until they suddenly do not.
-
----
-
-### What the real discovery run changed
-
-Two bugs only appeared once a live model drove the app, and both are the same bug wearing
-different clothes. They are worth writing down because they are the central hazard of
-record-and-replay and neither is visible in a happy-path demo.
-
-**The model targeted the balance cell by its value.** It chose `cell "$8,241.55"` — correctly
-scoped to the SAVINGS row, and then pinned to the number it happened to see. That capability
-succeeds for the member it was recorded on and fails for every other member.
-
-**The model chose the record itself as the success marker.** Asked for "a distinctive phrase
-that proves the goal was reached", it picked `"SV-100241 SAVINGS $8,241.55 OPEN"`. Genuinely
-distinctive. Specific to one member.
-
-The general rule underneath both: **a discovery model identifies things by looking at one
-screen, and on a record screen what it can see IS the record.** It cannot detect this itself,
-because it only ever sees one example. So validating it is the recorder's job, and the recorder
-now does two things it did not before:
-
-- **Generalises value-shaped read targets.** If a read target's accessible name matches a
-  currency, number or date shape, the name is relaxed to a pattern for that shape and the
-  structural part of the descriptor — the `within` row scope, which is what actually identifies
-  the cell — is kept. Narrow on purpose: it only fires on `read`, and generalising a genuine
-  label would be worse than the bug it fixes.
-- **Rejects a success marker that contains run-specific data.** Checked against this run's input
-  values, its extracted outputs, and currency/long-digit shapes. On rejection it falls back to a
-  digit-free heading from the final screen, then to a checkpoint it already trusts. Both the
-  rejection and the reason are written into the artifact so a reviewer sees the substitution.
-
-A third finding came from testing the recorded capability against every member rather than the
-one it was recorded on. Member 44120 holds no savings account at all, and the run failed with
-`target_not_found` — technically true, and the wrong answer. "This member has no savings
-account" is a business outcome the caller needs, not a broken automation. It is now a declared
-outcome, `NO_SAVINGS_ACCOUNT`, detected by the absence of a SAVINGS row.
-
-That last one is the clearest argument for the three-way result contract: the difference between
-*the automation broke* and *the answer is no* is invisible unless the type system makes you say
-which one you mean.
-
-## 4. Heterogeneity and multi-tenant
-
-**Surface abstraction.** The seam is `observe / resolve / act` over an accessibility model, and
-the reason it generalises is that a11y trees are not a browser feature — Windows UIA and macOS
-AX expose the same role-and-name shape for native controls. So a desktop implementation supplies
-`observe()` from the platform tree and `resolve()` from the same role/name descriptor, and **the
-artifact schema does not change at all.** `application.surface` already carries
-`web | legacy-web | desktop` so a capability declares what it was recorded against.
-
-What genuinely would not port: the `frame` field, which is web-specific. On desktop the
-equivalent is a window or pane, so the honest version is that `frame` should become a more
-general `container` before a desktop surface ships. I left it web-shaped rather than inventing
-an abstraction with one implementation, but that is the first thing I would change.
-
-**Multi-tenant reuse.** Hundreds of tenants run the same vendor product with different branding.
-Re-recording per tenant does not scale, so an artifact is one base flow plus small, explicit
-overlays:
-
-```json
-"tenantOverlays": [
-  { "tenantId": "summitline", "baseUrl": "...?tenant=summitline", "descriptorOverrides": {} }
-]
-```
-
-An overlay can change the entry URL and patch individual step descriptors. Nothing else. **The
-weakness is deliberate** — anything an overlay cannot express is a genuinely different flow and
-should be a different artifact. A more powerful overlay language would absorb real divergence
-into a pile of conditionals and make drift invisible.
-
-In practice most branding drift never reaches the overlay at all, because the fallback ladder
-handles it: Riverbend labels the field "Member ID", Summitline labels it "Member Number", and the
-substring fallback matches both. There is a test that runs the base artifact unmodified against
-the second tenant.
-
-**Detecting drift** is the part I designed but did not build. The mechanism I would use is
-already half-present: replay reports which strategy resolved each control. A capability that
-starts resolving via fallback rather than primary on one tenant is drifting *before* it breaks.
-Aggregate that per tenant and per product version and you get an early warning instead of a
-Monday-morning outage. That is the highest-value next thing.
-
----
-
-## 5. Escalation and handoff
-
-**Detecting stuck.** Three sources, all of which route through one broker: an irreversible step
-reached under a policy set to escalate; a recovery rule exhausted; a hard failure the caller
-configured to escalate rather than fail.
-
-**Control transfer is a state machine on the session, not a flag:**
+Escalation is a control transfer, not a notification. The broker state machine is:
 
 ```
-AUTOMATION ──raise()──▶ AWAITING_HUMAN ──claim()──▶ HUMAN ──release()──▶ AUTOMATION
-     ▲                                                 │
-     └──────────────── abandon() ──────────────────────┘
+automation → awaiting human → claimed by operator → released → automation
+                              ↘ abandoned → automation
 ```
 
-Two rules make it safe. **Exactly one party holds control**, and `WebSurface` enforces it —
-every action calls `assertControl()` and throws if a human holds the session, so a resumed run
-cannot race an operator who is still typing. There is a test for this. And **every transition is
-recorded as evidence**, because "who was in control when this happened" is a question you will be
-asked about a banking system.
+When policy reaches an approved irreversible step—or when enabled runtime failure cannot be resolved—the broker captures the reason, step, location, screenshot, run ID, and capability identity. The Surface cedes its lease, and all automation actions throw until control returns.
 
-**Same session, not a new one — and this part is real, not mocked.** The browser is launched via
-`chromium.launchServer()`, which yields a `wsEndpoint`. The automation connects to it as a
-client. An operator console connects to the *same* endpoint with `chromium.connect()` and gets
-the same browser, same context, same cookies, same half-filled form. In headed mode the human
-simply uses the window that is already open. The endpoint is published on the intervention record.
+Locally, a second Playwright client can attach over loopback CDP to the same persistent Chromium context, proving that cookies, frames, page state, and the prepared form are unchanged. The Studio’s hosted operator adapter also performs a deliberately small click/type/press vocabulary against that exact paused Surface. It does not create a substitute session.
 
-**What is real vs mocked**, stated plainly because the brief asks:
+The operator must claim before acting. Human actions are audited without storing raw typed text. The operator note is retained as audit context but is never parsed or allowed to steer execution. Release returns the lease; replay verifies the guarded step’s declared checkpoint before marking it human-completed and continuing. Cede, claim, action, release, resume, and the final result are written to one evidence stream and one run directory. Timeout or abandonment also restores the Surface lease.
 
-| Real | Mocked |
-|---|---|
-| The broker, the state machine, all four transitions | The operator console's UI. It is a plain HTML page. |
-| Enforcement that automation cannot act while a human holds control | Live video streaming of the session |
-| The live-session endpoint, and the fact that it is the same browser | Auth, operator identity, queue routing |
-| Context handed over: capability, step, reason, location, screenshot | |
-| The audit trail, including the operator's note | |
-| A bounded wait with automatic abandon on timeout | |
-
-**The operator's note is stored and never parsed.** It is audit evidence. A human note that
-could steer automation would be a very effective way to smuggle an instruction past the policy
-layer.
-
----
+A production implementation needs authenticated operator identity, durable ownership with heartbeat and expiry, streaming or approved remote-session access, and recovery after worker loss. Those are explicit deployment gaps.
 
 ## 6. Safety
 
-Three separate concerns, kept separate because they fail differently.
+The model proposes; the runtime disposes. Discovery and replay share the same policy engine.
 
-**Allowlist.** Hosts and optional path prefixes, checked before every navigation in both
-discovery and replay. Host matching is exact or explicit leading-dot suffix, so
-`bank.example.evil.com` does not match `bank.example` — there is a test for precisely that,
-because substring host matching is a classic bypass.
+- URL policy performs exact-host or explicit suffix matching plus optional path prefixes.
+- Browser request interception blocks redirects, frame navigation, click navigation, and popups before they leave the allowlist.
+- The action vocabulary is allowlisted.
+- Per-step risk is frozen into the reviewable artifact.
+- Draft irreversible artifacts fail closed; approved irreversible steps follow the configured human policy.
+- Step, run-time, recovery, resolution, and handoff waits are bounded.
+- Exactly one actor owns the Surface.
+- Inputs are validated before browser work.
+- Sensitive inputs and outputs are registered with the redactor before evidence is written.
+- Raw HTML, credentials, model keys, raw typed operator text, and raw transcripts are not persisted.
 
-**Risk classification, frozen at record time.** Every step carries `safe | elevated |
-irreversible`, decided during recording and stored in the artifact rather than inferred at run
-time. That makes it *reviewable*: a human approving a capability can see which steps are
-irreversible before it ever runs unattended. Classification is deliberately crude and
-conservative — anything matching confirm, submit, transfer, delete, open account is
-irreversible. Over-classifying costs a review; under-classifying opens an account.
+Sensitive currency output remains useful without leaking its value into the audit: replay records its type, a hash, and a masked proof. The local synthetic demo can display the fabricated value interactively. Step screenshots are opt-in and explicitly a demo feature; real financial deployment requires screenshot redaction, encryption, access control, and retention policy.
 
-**Approval gates unattended risk.** Artifacts are born `draft`. An irreversible step in a draft
-artifact is **refused outright, not escalated**. That asymmetry is intentional: escalating an
-unreviewed capability would put it in front of a human as though it were routine. Review is the
-control; escalation is not a substitute for it. Approved artifacts escalate instead.
-
-**Redaction is structural.** Everything written to evidence passes through `Redactor` inside
-`EvidenceLog.event()`, not at call sites, because relying on every call site to remember is how
-secrets end up in logs. Two layers: declared sensitive inputs matched literally (reliable), and
-pattern detection for SSNs, card-like digit runs, bearer tokens, emails (unreliable). **Raw page
-text is never persisted** — observations are stored as role/name control trees, and read values
-only when the artifact declares them as outputs.
-
-**Limits, honestly:**
-
-- The allowlist constrains what the *agent* does, not what a page does. It is not a network
-  control. A real deployment wants egress filtering underneath it.
-- Pattern redaction finds shapes it knows. Free-text PII in a notes field will pass through. The
-  declared-sensitive list is the reliable half; patterns are defence in depth.
-- Risk classification is keyword-based. A button labelled "Proceed" that wires money is
-  classified safe. In production this belongs in the per-application knowledge base as an
-  explicit control list, not in a regex.
-- Screenshots on failure may capture regulated data. They are the most useful debugging artifact
-  and the biggest data-handling liability in the system. I kept them because a bank cannot debug
-  without them, but they need retention limits and access control that I have not built.
-- Nothing here is a defence against a compromised model deciding to be adversarial. The policy
-  engine constrains *actions*; it does not reason about intent.
-
----
+All target records are fabricated in `target-app/data.ts`. No real customer data, bank credentials, or third-party banking system is accessed.
 
 ## 7. Cuts
 
-**Deliberately not built:**
+Depth was chosen over breadth.
 
-- **A real operator console.** Out of scope per the brief. The mechanism, the state machine and
-  the live-session endpoint are real; the UI is a plain page.
-- **A desktop surface.** The seam exists and is genuinely browser-free, but only `WebSurface`
-  implements it. Claiming otherwise without a second implementation would be dishonest.
-- **Queues, workers, multi-tenant plumbing.** The brief says building scaling infrastructure is
-  not rewarded. The abstractions do not preclude it.
-- **`select` action.** In the schema, throws if used. The target app has no select element and
-  implementing it untested would be worse than the explicit gap.
-- **Assisted LLM fallback on replay failure.** Tempting and listed as a stretch goal, but it
-  weakens the central claim that replay is model-free. If I added it, it would be a separate,
-  explicitly-flagged execution mode with a single-step bound and a policy check, never the
-  default.
+There is no voice interface, customer CRM, employee task queue, decorative login, real bank integration, or large fabricated dashboard. None strengthens the required discovery → artifact → replay → escalation slice, and partially working breadth would weaken the submission.
 
-**What I would build next, in order:**
+The operator UI is intentionally small. It demonstrates the enforced same-session lease and verified resume; it does not pretend to be an institution-grade co-browsing product. Authentication and role-based access are documented production boundaries, not fake local controls.
 
-1. **Drift detection from resolution telemetry.** Replay already reports which strategy resolved
-   each control. Aggregating that per tenant and version turns "this broke" into "this is
-   degrading". Highest value for least work, and it is the thing that makes the multi-tenant
-   story operational rather than theoretical.
-2. **Confidence scoring and an approval workflow.** Replay N times, record a stability signal,
-   gate `draft → approved` on it. The approval state already exists; nothing computes it.
-3. **Generalise `frame` to `container`** so the desktop seam is honest rather than aspirational.
-4. **A structured diff between artifact revisions**, so re-recording a capability produces a
-   reviewable change rather than an opaque replacement.
-5. **Retention and access control on screenshots**, which is the clearest gap between this and
-   something that could touch real data.
+The optional Capability Studio goes beyond the minimum operator surface only to make the existing execution, evidence, and control-transfer paths inspectable without model credentials. Its four sections are Overview, Run demo, Proof, and Human review; artifact details live beside evidence rather than in a separate workflow. It is a reviewer aid, not a second architecture or a claimed production employee console; the CLI remains the canonical discovery-to-replay path.
 
-**Time spent:** roughly a focused day. The scaffolding came together quickly with AI assistance,
-as the brief anticipates; the time went into the artifact schema, the `within.hasText` targeting
-problem, and getting the three-way result contract right. Those are the parts I would defend
-line by line.
+Only two stretch directions are pursued:
+
+1. an agent-facing catalog that exposes approved capabilities as typed tool definitions; and
+2. cross-tenant reuse through constrained overlays.
+
+The committed evidence is curated by a script that regenerates named cases and asserts that directory labels, result status, business codes, failures, screenshots, handoff transitions, and file paths agree. The verifier also scans for known synthetic sensitive values. This prevents documentation or curation mistakes from contradicting the executable claim.

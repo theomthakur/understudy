@@ -37,7 +37,7 @@ import type {
   Step,
   TenantOverlay,
 } from "../domain/artifact.js";
-import { SCHEMA_VERSION, CapabilityArtifactSchema } from "../domain/artifact.js";
+import { SCHEMA_VERSION, CapabilityArtifactSchema, computeArtifactHash } from "../domain/artifact.js";
 import type { DiscoveryResult, RecordedAction } from "./agent.js";
 import type { ResolveTarget } from "../surface/surface.js";
 
@@ -95,8 +95,17 @@ export function record(input: RecordInput): CapabilityArtifact {
     description: input.description,
     application: {
       productId: input.productId,
+      vendor: "Acme Financial Systems (synthetic)",
+      product: "Core Banking Console",
+      versionRange: ">=7 <8",
       surface: "legacy-web",
       baseUrl: input.baseUrl,
+    },
+    policySnapshot: {
+      allowedHosts: [new URL(input.baseUrl).hostname],
+      allowedPathPrefixes: ["/"],
+      allowedActions: ["navigate", "click", "type", "press", "read", "wait_for"],
+      irreversiblePolicy: "escalate",
     },
     inputs: input.inputs,
     outputs: input.outputs,
@@ -118,7 +127,9 @@ export function record(input: RecordInput): CapabilityArtifact {
 
   // Parse rather than cast: a recorder bug should fail here, loudly, not at replay time on
   // someone else's machine.
-  return CapabilityArtifactSchema.parse(artifact);
+  const parsed = CapabilityArtifactSchema.parse(artifact);
+  const artifactHash = computeArtifactHash(parsed);
+  return CapabilityArtifactSchema.parse({ ...parsed, artifactHash });
 }
 
 
@@ -129,7 +140,7 @@ export function record(input: RecordInput): CapabilityArtifact {
  *
  * The model is asked for "a distinctive phrase that proves the goal was reached", and on a
  * record screen the most distinctive thing visible is the record itself. In a real run it
- * chose `"SV-100241 SAVINGS $8,241.55 OPEN"` — genuinely distinctive, and specific to one
+ * chose a composite account-row value — genuinely distinctive, and specific to one
  * member, so the capability succeeded for the member it was recorded on and failed for
  * everyone else.
  *
@@ -232,7 +243,7 @@ function toStep(a: RecordedAction, n: number, input: RecordInput): Step | undefi
       return {
         id,
         action: "type",
-        target,
+        target: target!,
         value: parameterise(typed, input.inputValues),
         risk: a.risk,
         optional: false,
@@ -246,7 +257,7 @@ function toStep(a: RecordedAction, n: number, input: RecordInput): Step | undefi
       return {
         id,
         action: "click",
-        target,
+        target: target!,
         risk: a.risk,
         optional: false,
         checkpoint: locationCheckpoint(a),
@@ -269,8 +280,8 @@ function toStep(a: RecordedAction, n: number, input: RecordInput): Step | undefi
       return {
         id,
         action: "read",
-        target: g.descriptor,
-        outputKey: a.proposed.outputKey,
+        target: g.descriptor!,
+        outputKey: a.proposed.outputKey!,
         risk: "safe",
         optional: false,
         discoveredBecause: g.note
@@ -287,7 +298,7 @@ function toStep(a: RecordedAction, n: number, input: RecordInput): Step | undefi
  *
  * A discovery model identifies a control by what it can see, and on a data cell what it can
  * see IS the data. In a real run the model targeted the savings balance as
- * `cell "$8,241.55"` — correct for the member it was looking at, useless for every other
+ * a literal currency cell — correct for the member it was looking at, useless for every other
  * member. That is the classic record-and-replay failure: recording a value instead of a
  * locator. It passes the run that created it and fails the first run that matters.
  *
@@ -314,8 +325,27 @@ function generaliseVolatileName(
   const shape = VOLATILE_SHAPES.find((s) => s.test.test(d.name!));
   if (!shape) return { descriptor: d };
 
+  // A fallback derived from a volatile name is the same record-pinning bug one rung down
+  // the ladder: keeping a literal observed currency beneath a generalised primary would freeze
+  // this run's record data into the artifact and contradict the generalisation above it.
+  const fallbacks = d.fallbacks.filter(
+    (fb) => !VOLATILE_SHAPES.some((s) => s.test.test(fb.value))
+  );
+
+  if (d.within?.role === "row" && d.within.hasText && shape.name === "currency") {
+    return {
+      descriptor: {
+        ...d,
+        name: undefined,
+        fallbacks,
+        tableCell: { rowLabel: d.within.hasText, columnLabel: "Balance" },
+      },
+      note: `recorded currency data became the relational cell ${d.within.hasText} × Balance`,
+    };
+  }
+
   return {
-    descriptor: { ...d, name: shape.pattern, nameMatch: "regex" },
+    descriptor: { ...d, name: shape.pattern, nameMatch: "regex", fallbacks },
     note:
       `recorded name "${d.name}" looked like ${shape.name} data rather than a label, so it was ` +
       `generalised to a ${shape.name} pattern; the row scope is what identifies this cell`,
@@ -377,6 +407,8 @@ function hardenDescriptor(t: ResolveTarget): ElementDescriptor {
     name: t.name,
     nameMatch: t.nameMatch,
     index: t.index,
+    tableCell: t.tableCell,
+    recordedBounds: t.recordedBounds,
     within: t.within,
     frame: t.frame,
     fallbacks,

@@ -6,6 +6,9 @@
   "type": "module",
   "engines": { "node": ">=18.18" },
   "scripts": {
+    "start": "node dist/src/studio/server.js",
+    "app": "tsx src/studio/server.ts",
+    "studio": "tsx src/studio/server.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "target": "tsx target-app/server.ts",
@@ -13,9 +16,12 @@
     "replay": "tsx src/cli.ts replay",
     "catalog": "tsx src/cli.ts catalog",
     "seed": "tsx scripts/author-example-artifact.ts",
+    "curate:evidence": "tsx scripts/curate-evidence.ts",
     "operator": "tsx src/cli.ts operator",
-    "test": "node --import tsx --test tests/*.test.ts",
-    "postinstall": "playwright install chromium --with-deps || playwright install chromium || true"
+    "test": "tsx scripts/test-with-target.ts",
+    "verify:evidence": "tsx scripts/verify-evidence.ts",
+    "check": "npm run typecheck && npm test && npm run verify:evidence",
+    "postinstall": "playwright install chromium"
   },
   "dependencies": {
     "express": "^4.19.2",

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Candidate project: an LLM discovers a legacy UI flow once, then a typed capability replays without a model.">
+  <title>Understudy · Capability Studio</title>
+  <link rel="icon" href="/studio-assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/studio-assets/studio.css">
+</head>
+<body>
+  <div class="candidate-bar"><span></span> Candidate project for interface.ai · Synthetic banking environment · Not a production system</div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark"><i></i></div><div><div class="brand-name">Understudy</div><div class="brand-sub">Capability Studio</div></div></div>
+      <nav class="nav" aria-label="Primary navigation">
+        <div class="nav-label">Workspace</div>
+        <button class="nav-button active" data-view="overview"><span class="nav-icon">⌂</span><span>Overview</span></button>
+        <button class="nav-button" data-view="studio"><span class="nav-icon">▶</span><span>Run demo</span></button>
+        <button class="nav-button" data-view="evidence"><span class="nav-icon">◇</span><span>Proof</span></button>
+        <button class="nav-button" data-view="interventions"><span class="nav-icon">↔</span><span>Human review</span></button>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-card"><div class="sidebar-card-top"><span class="pulse"></span> System healthy</div><strong>0</strong><p>model decisions during deterministic replay</p></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><div class="page-kicker">Candidate Project</div><div class="page-title">Capability overview</div></div>
+        <div class="topbar-actions"><span class="status-pill"><span class="pulse"></span><b>Local demo</b> · synthetic only</span><span class="status-pill">Schema v1.0.0</span></div>
+      </header>
+
+      <div class="content">
+        <section class="view active" data-name="overview">
+          <div class="hero">
+            <div class="hero-copy">
+              <div class="eyebrow">Computer-use automation</div>
+              <h1>The model discovers.<br><span>The capability performs.</span></h1>
+              <p>Understudy gives AI agents controlled, repeatable hands inside legacy banking software. An LLM learns the workflow once; every approved replay after that is typed, policy-checked, deterministic, and auditable.</p>
+              <div class="hero-actions"><button class="button primary" data-go="studio">Run the saved capability →</button><button class="button secondary" data-go="evidence">Inspect the proof</button></div>
+            </div>
+            <div class="hero-proof"><div class="proof-card"><div class="proof-head"><span>Deterministic replay</span><span class="chip"><span class="pulse"></span> Verified</span></div><div class="proof-number">0 calls</div><div class="proof-label">Model decisions during replay</div><div class="proof-divider"></div><div class="proof-row"><span>Runtime classes</span><b>Outcome · recovery · failure</b></div><div class="proof-row"><span>Control lease</span><b>Enforced</b></div><div class="proof-row"><span>Hostile surface</span><b>Frameset</b></div></div></div>
+          </div>
+
+          <section class="section">
+            <div class="section-head"><div><h2 class="section-title">One learned flow, four controlled stages</h2><p class="section-copy">The model is temporary. The reviewed capability is the product.</p></div><button class="text-link" data-go="evidence">Open artifact and evidence →</button></div>
+            <div class="flow-grid">
+              <article class="flow-step"><div class="step-number">01</div><h3>Discover</h3><p>An LLM observes screenshots and visible controls, then acts against the real UI.</p></article>
+              <article class="flow-step"><div class="step-number">02</div><h3>Compile</h3><p>The successful transcript becomes a typed, parameterized, versioned capability.</p></article>
+              <article class="flow-step"><div class="step-number">03</div><h3>Review</h3><p>People inspect risk, locators, outputs, checkpoints, and known outcomes before approval.</p></article>
+              <article class="flow-step"><div class="step-number">04</div><h3>Replay</h3><p>The agent invokes a fixed execution plan with no model deciding what happens next.</p></article>
+            </div>
+          </section>
+
+          <section class="section metric-grid" aria-label="System summary">
+            <article class="metric-card"><div class="metric-card-top"><span>Saved capabilities</span><span class="metric-symbol">◇</span></div><div class="metric-value" id="capability-count">—</div><div class="metric-detail">Counted from validated artifacts on disk</div></article>
+            <article class="metric-card"><div class="metric-card-top"><span>Curated replay cases</span><span class="metric-symbol">✓</span></div><div class="metric-value" id="evidence-count">—</div><div class="metric-detail">Counted from the committed evidence set</div></article>
+            <article class="metric-card"><div class="metric-card-top"><span>Known outcomes</span><span class="metric-symbol">↳</span></div><div class="metric-value" id="outcome-count">—</div><div class="metric-detail">Declared by the selected capability contract</div></article>
+            <article class="metric-card"><div class="metric-card-top"><span>Unresolved handoffs</span><span class="metric-symbol">↔</span></div><div class="metric-value">0</div><div class="metric-detail">Automation currently owns control</div></article>
+          </section>
+
+        </section>
+
+        <section class="view" data-name="studio">
+          <div class="studio-intro"><div><h1>Run the demo</h1><p>Invoke the approved capability against a hostile synthetic banking UI. The browser inside the frame is the target; the controls around it show the fixed execution plan.</p></div><div class="mode-switch"><button class="mode-button active" data-mode="replay">Run saved steps</button><button class="mode-button" data-mode="discovery">How it was learned</button></div></div>
+          <div class="studio-grid">
+            <div class="control-stack">
+              <div class="control-panel"><div class="panel-title" id="mode-title">Invoke saved capability</div><div class="panel-subtitle" id="mode-description">Approved path · deterministic · no model decisions</div>
+                <div class="field"><label class="control-label" id="goal-label">Capability</label><div class="goal-box" id="goal-box">member.read_savings_balance · revision 1</div></div>
+                <div class="field" id="parameter-field"><label class="control-label" for="member-id">memberId · sensitive string</label><div class="input-wrap"><span>#</span><input id="member-id" value="22871" inputmode="numeric" maxlength="10" aria-describedby="member-help"></div><div class="quick-values" id="member-help"><button class="quick-value" data-value="22871">22871 · success</button><button class="quick-value" data-value="44120">44120 · no savings</button><button class="quick-value" data-value="99999">99999 · not found</button><button class="quick-value" data-value="30099">30099 · denied</button></div></div>
+                <button class="button blue run-button" id="run-capability">Run deterministic replay →</button>
+                <div class="policy-note"><div class="check">✓</div><div><strong>Policy preflight passed.</strong><br>Origin, route, action type, and input contract are allowlisted.</div></div>
+              </div>
+              <div class="control-panel"><div class="panel-title">Resolved contract</div><div class="contract-field"><span>Input</span><code>memberId: sensitive string</code></div><div class="contract-field"><span>Output</span><code>savingsBalance: sensitive currency</code></div><div class="contract-field"><span>Risk ceiling</span><span class="badge success">Safe</span></div><div class="contract-field"><span>Artifact</span><code id="artifact-hash">sha256: validating…</code></div></div>
+            </div>
+
+            <div class="surface-panel"><div class="surface-toolbar"><div class="window-dots"><i></i><i></i><i></i></div><div class="surface-address" id="surface-address">/legacy/workspace?memberId=[redacted]</div><div class="surface-owner"><i></i> Automation owns session</div></div><iframe class="legacy-frame" id="legacy-frame" src="/legacy/workspace?memberId=22871" title="Synthetic hostile legacy banking application"></iframe><div class="surface-footer"><span><strong>Hostile target</strong> · frameset · nested tables · no test IDs · synthetic records</span><span>Browser-level navigation guard active</span></div></div>
+
+            <div class="panel execution-panel"><div class="panel-head"><div><div class="panel-title">Execution timeline</div><div class="panel-subtitle">Semantic locators · bounded recovery · verified checkpoints</div></div><span class="badge success">Live engine</span></div><div class="panel-body"><ol class="timeline" id="timeline"></ol><div class="output-card" id="run-output"><div class="output-label">Ready for deterministic replay</div><div class="output-value">0 model calls</div><div class="output-sub">Choose a synthetic scenario and invoke the saved capability</div></div><div class="model-zero" id="model-zero"><span>Model decisions in this run</span><b>0</b></div></div></div>
+          </div>
+        </section>
+
+        <section class="view" data-name="evidence">
+          <div class="view-heading"><div><h1>Proof</h1><p>Inspect the approved artifact and the evidence that discovery, replay, business outcomes, failures, recovery, and handoff behave as claimed.</p></div><span class="status-pill"><span class="pulse"></span><b>Curated and verified</b> · synthetic only</span></div>
+          <div class="capability-layout section">
+            <div class="panel cap-hero"><div class="cap-title-row"><div><div class="cap-icon">◇</div><h2 class="cap-name">member.read_savings_balance</h2><p class="cap-description">The successful model-driven run was compiled into this approved, parameterized contract.</p></div><div><span class="badge success">Approved · read only</span></div></div>
+              <div class="contract-grid"><div class="contract-card"><h3>Invocation input</h3><div class="contract-field"><span>memberId</span><code>required · sensitive string</code></div></div><div class="contract-card"><h3>Typed output</h3><div class="contract-field"><span>savingsBalance</span><code>sensitive currency</code></div></div></div>
+              <div class="section-head" style="margin-top:22px"><div><h3 class="section-title" style="font-size:13px">Fixed execution plan</h3><p class="section-copy" id="artifact-step-count">4 deterministic steps</p></div><span class="badge info">0 model calls on replay</span></div>
+              <ol class="step-list"><li><div class="step-kind">NAV</div><div><strong>Open approved entrypoint</strong><span>Enforce origin and route policy</span></div><span class="badge success">Safe</span></li><li><div class="step-kind">TXT</div><div><strong>Enter memberId</strong><span>Use the invocation parameter, not the recorded value</span></div><span class="badge info">Input</span></li><li><div class="step-kind">CLK</div><div><strong>Submit search</strong><span>Verify the member profile checkpoint</span></div><span class="badge success">Safe</span></li><li><div class="step-kind">EXT</div><div><strong>Read SAVINGS × Balance</strong><span>Resolve the relational table cell</span></div><span class="badge info">Output</span></li></ol>
+            </div>
+            <details class="panel artifact-details"><summary>Inspect the validated JSON artifact</summary><div class="artifact-meta">Recorded <span id="artifact-created">from genuine discovery</span></div><pre class="artifact-code" id="artifact-code">Loading validated artifact…</pre></details>
+          </div>
+          <div class="evidence-grid">
+            <article class="evidence-card"><div class="evidence-image observation-visual"><div class="observation-window"><small>OBSERVATION 01 · FRAME main</small><strong>Member Search</strong><code>[e1] textbox · Member ID</code><code>[e2] button · Search</code><span>model → type(e1, input:memberId)</span></div><span class="evidence-tag">LLM discovery · committed event stream</span></div><div class="evidence-copy"><h3>Model acts through constrained candidates</h3><p>The genuine run records every observation, proposed action, rationale, and resolution strategy without persisting raw page HTML.</p><div class="evidence-meta"><span>Genuine model run</span><span>4 observations</span></div></div></article>
+            <article class="evidence-card"><div class="evidence-image"><img src="/evidence/curated/replay-success/step-s3.png" alt="Successful deterministic replay showing a savings balance"><span class="evidence-tag">Replay · success checkpoint</span></div><div class="evidence-copy"><h3>Same artifact, different member</h3><p>The relational SAVINGS × Balance locator returns a new typed currency value without re-recording or model reasoning.</p><div class="evidence-meta"><span>0 model calls</span><span>Different input</span></div></div></article>
+            <article class="evidence-card"><div class="evidence-image"><img src="/evidence/curated/replay-not-found/step-s1.png" alt="Known member not found outcome"><span class="evidence-tag">Replay · business outcome</span></div><div class="evidence-copy"><h3>Not found is not a crash</h3><p>The artifact detects the declared application state even when the next control is absent and returns a branchable outcome.</p><div class="evidence-meta"><span>MEMBER_NOT_FOUND</span><span>Failure path checked</span></div></div></article>
+          </div>
+          <section class="section two-column"><div class="panel"><div class="panel-head"><div><div class="panel-title">Structured event stream</div><div class="panel-subtitle">Redacted values · ordered evidence · stable step IDs</div></div><span class="badge success">No sensitive values</span></div><div class="log-view">
+            <div class="log-line"><time>06:07:30</time><span class="log-event">observation</span><span>frameset search · accessible candidates captured</span></div><div class="log-line"><time>06:07:36</time><span class="log-event">model_decision</span><span>type · Member ID · parameter reference</span></div><div class="log-line"><time>06:07:45</time><span class="log-event">action_completed</span><span>Search · role-name strategy · unique match</span></div><div class="log-line"><time>06:07:55</time><span class="log-event">recorder_hardening</span><span>volatile balance → SAVINGS × Balance</span></div><div class="log-line"><time>06:08:06</time><span class="log-event">model_decision</span><span>done · durable heading checkpoint</span></div><div class="log-line success"><time>06:08:08</time><span class="log-event">completed</span><span>member.read_savings_balance · sensitive output [REDACTED]</span></div>
+          </div></div><div class="panel"><div class="panel-head"><div><div class="panel-title">Result taxonomy</div><div class="panel-subtitle">Callers always know what happened</div></div></div><div class="panel-body"><ul class="safety-list"><li><div class="check">✓</div><div><strong>Success</strong><span>All checkpoints pass and every declared output is returned with its type.</span></div></li><li><div class="check" style="background:var(--yellow-soft);color:var(--amber)">↳</div><div><strong>Business outcome</strong><span>A legitimate state such as member not found or permission denied.</span></div></li><li><div class="check" style="background:var(--red-soft);color:var(--red)">!</div><div><strong>Failure</strong><span>Step, category, expectation, observation, and rich evidence for debugging.</span></div></li></ul></div></div></section>
+        </section>
+
+        <section class="view" data-name="interventions">
+          <div class="view-heading"><div><h1>Human review</h1><p>See the saved workflow stop before an account-changing action, give one person control of the same session, and resume only after verification.</p></div><button class="button blue" id="create-handoff">Start safety demo</button></div>
+          <div class="handoff-hero">
+            <div class="panel"><div class="panel-head"><div><div class="panel-title">Control-transfer model</div><div class="panel-subtitle">Exactly one actor owns the live session</div></div><span class="badge success" id="control-owner">Automation owns session</span></div><div class="handoff-diagram"><div class="owner-card"><div class="owner-avatar">AI</div><strong>Automation executor</strong><span>Acts only while its lease is active</span></div><div class="transfer-arrow">⇄</div><div class="owner-card human"><div class="owner-avatar">OM</div><strong>Human operator</strong><span>Claims the same cookies, state, and open page</span></div></div></div>
+            <div class="panel"><div id="handoff-empty" class="queue-empty"><div><div class="queue-empty-icon">✓</div><h3>No interventions waiting</h3><p>All runs are complete or still owned by automation. Start the guarded capability to create a real broker record and enforced lease.</p></div></div><div class="intervention-card" id="intervention-card"><div class="intervention-banner"><div class="check" style="background:white;color:var(--amber)">!</div><div><strong>Irreversible action requires a person</strong><p>The form is prepared. Claim the paused session, complete the explicit guarded action, then let replay verify the checkpoint before it resumes.</p></div></div><table class="detail-table"><tr><th>Request</th><td id="handoff-request">—</td></tr><tr><th>Capability</th><td>member.open_sub_account@1</td></tr><tr><th>Stopped at</th><td id="handoff-step">—</td></tr><tr><th>Live session</th><td id="handoff-location">Acme Core · member [redacted]</td></tr><tr><th>State</th><td><span class="badge info" id="handoff-state">Open</span></td></tr></table><div style="display:flex;gap:8px;margin-top:14px"><button class="button blue" id="claim-intervention">Take control of live session</button><button class="button ghost" id="dismiss-intervention">Dismiss resolved record</button></div></div></div>
+          </div>
+          <section class="section flow-grid" style="grid-template-columns:repeat(4,1fr)"><article class="flow-step"><div class="step-number">01</div><h3>Detect</h3><p>Stuck state, policy denial, or risky action produces a contextual request.</p></article><article class="flow-step"><div class="step-number">02</div><h3>Pause</h3><p>The executor releases its lease and is physically prevented from acting.</p></article><article class="flow-step"><div class="step-number">03</div><h3>Operate</h3><p>A named operator claims the existing session and performs the manual step.</p></article><article class="flow-step"><div class="step-number">04</div><h3>Resume</h3><p>Human activity is recorded; checkpoints determine whether replay may continue.</p></article></section>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation"><button class="nav-button active" data-view="overview"><span class="nav-icon">⌂</span><span>Overview</span></button><button class="nav-button" data-view="studio"><span class="nav-icon">▶</span><span>Run</span></button><button class="nav-button" data-view="evidence"><span class="nav-icon">◇</span><span>Proof</span></button><button class="nav-button" data-view="interventions"><span class="nav-icon">↔</span><span>Human</span></button></nav>
+  <div class="toast" id="toast" role="status" aria-live="polite"><i>✓</i><div><strong>Ready</strong><span>The capability studio is available.</span></div></div>
+  <script src="/studio-assets/studio.js"></script>
+</body>
+</html>

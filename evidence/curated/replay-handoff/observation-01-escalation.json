@@ -1,0 +1,60 @@
+{
+  "location": "http://localhost:4471/workspace?memberId=[REDACTED]&tenant=riverbend",
+  "title": "Member Workspace [REDACTED]",
+  "notices": [
+    "This action opens a new account and cannot be undone from this screen."
+  ],
+  "capturedAt": "2026-08-23T18:16:32.468Z",
+  "controls": [
+    {
+      "role": "text",
+      "name": "\"Riverbend Credit Union — Back Office Console Operator: svc.automation\"",
+      "frame": "hdr"
+    },
+    {
+      "role": "link",
+      "name": "Member Search",
+      "frame": "hdr"
+    },
+    {
+      "role": "text",
+      "name": "\"Workspace: [REDACTED]\"",
+      "frame": "hdr"
+    },
+    {
+      "role": "text",
+      "name": "\"Riverbend Credit Union — Back Office Console Operator: svc.automation\"",
+      "frame": "detail"
+    },
+    {
+      "role": "heading",
+      "name": "Confirm New Sub-Account",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "Sub-Account Nickname",
+      "frame": "detail"
+    },
+    {
+      "role": "cell",
+      "name": "Holiday Savings",
+      "frame": "detail"
+    },
+    {
+      "role": "textbox",
+      "name": "Sub-Account Nickname",
+      "frame": "detail"
+    },
+    {
+      "role": "button",
+      "name": "Confirm and Open",
+      "frame": "detail"
+    },
+    {
+      "role": "link",
+      "name": "Cancel",
+      "frame": "detail"
+    }
+  ]
+}

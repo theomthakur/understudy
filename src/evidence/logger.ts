@@ -68,6 +68,10 @@ export class EvidenceLog {
     this.event("error", event, data);
   }
 
+  addSecret(value: string | undefined): void {
+    this.redactor.addSecret(value);
+  }
+
   /**
    * Persist an observation.
    *

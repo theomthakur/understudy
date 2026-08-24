@@ -72,6 +72,7 @@ export class Redactor {
 
   private walk(v: unknown): unknown {
     if (typeof v === "string") return this.redactString(v);
+    if (typeof v === "number" && this.literals.includes(String(v))) return "[REDACTED]";
     if (Array.isArray(v)) return v.map((x) => this.walk(x));
     if (v && typeof v === "object") {
       const out: Record<string, unknown> = {};

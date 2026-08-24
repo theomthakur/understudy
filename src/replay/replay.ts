@@ -19,6 +19,7 @@
  * reported as a broken capability.
  */
 
+import { createHash } from "node:crypto";
 import type {
   CapabilityArtifact,
   Checkpoint,
@@ -28,8 +29,11 @@ import type {
   Value,
 } from "../domain/artifact.js";
 import type {
+  EscalatedResult,
   FailedResult,
   OutcomeResult,
+  OutputValue,
+  ReplayEvidence,
   ReplayResult,
   StepTrace,
 } from "../domain/result.js";
@@ -49,6 +53,12 @@ export interface ReplayOptions {
   tenantId?: string;
   escalation?: EscalationBroker;
   evidenceRoot?: string;
+  /** Synthetic/demo mode only; real deployments need screenshot-level PII controls. */
+  captureStepScreenshots?: boolean;
+  /** Bounded operator wait. Set to 0 only for a caller that explicitly wants pending. */
+  handoffWaitMs?: number;
+  /** Route runtime breakage to an operator before returning terminal failure. */
+  escalateOnFailure?: boolean;
 }
 
 export async function replay(
@@ -61,6 +71,8 @@ export async function replay(
   const redactor = new Redactor();
   const log = new EvidenceLog(runId, redactor, opts.evidenceRoot);
   const trace: StepTrace[] = [];
+  opts.escalation?.useEvidenceLog(log);
+  opts.surface.setNavigationGuard((url) => opts.policy.checkUrl(url));
 
   // Register sensitive inputs with the redactor before anything is written anywhere.
   for (const p of artifact.inputs) {
@@ -73,9 +85,10 @@ export async function replay(
     runId,
     tenantId: opts.tenantId,
     attended: !!opts.attended,
+    modelInvocations: 0,
   });
 
-  const evidence = { runId, logPath: log.eventsPath };
+  const evidence: ReplayEvidence = { runId, logPath: log.eventsPath };
   const fail = (
     failure: FailedResult["failure"],
     stepId: string | null,
@@ -120,12 +133,14 @@ export async function replay(
   const approved = artifact.approval.state === "approved";
 
   /* ---------------------------------------------------------- step loop */
-  const outputs: Record<string, string | number | boolean> = {};
+  const outputs: Record<string, OutputValue> = {};
   const recoveryAttempts = new Map<string, number>();
 
-  for (const rawStep of artifact.steps) {
+  stepLoop: for (const rawStep of artifact.steps) {
     if (Date.now() - started > opts.policy.config.maxRunMs) {
       const r = fail("timeout", rawStep.id, `run under ${opts.policy.config.maxRunMs}ms`, "budget exceeded", "Run budget exceeded");
+      const handoff = await offerFailureHandoff(r, artifact, rawStep.id, opts, log);
+      if (handoff) r.interventionId = handoff.interventionId;
       log.error("replay.timeout", { stepId: rawStep.id });
       log.saveResult(r);
       return r;
@@ -151,9 +166,75 @@ export async function replay(
     if (!riskVerdict.allow) {
       log.warn("policy.risk_gate", { stepId: step.id, risk: step.risk, reason: riskVerdict.reason });
       if (riskVerdict.escalate && opts.escalation) {
-        return await escalate(
+        const handoff = await escalate(
           artifact, step.id, riskVerdict.reason, opts, log, trace, started, evidence
         );
+        if (handoff.status === "terminal") return handoff.result;
+
+        // The operator completed the guarded action. Never execute it again: doing so would
+        // duplicate an irreversible operation. Verification, not trust in the note, decides
+        // whether replay may continue.
+        if (!step.checkpoint) {
+          const r = fail(
+            "checkpoint_failed",
+            step.id,
+            "a post-handoff checkpoint for the human-completed step",
+            "the artifact declares no checkpoint",
+            "Replay cannot safely resume after a human action without verifying its result"
+          );
+          r.interventionId = handoff.interventionId;
+          await captureFailure(opts.surface, log, r);
+          log.saveResult(r);
+          return r;
+        }
+        let verified = await assertCheckpoint(step.checkpoint, opts.surface);
+        if (!verified) {
+          const obs = await safeObserve(opts.surface);
+          const outcome = obs && detectBusinessOutcome(artifact, obs);
+          if (outcome) return finishOutcome(outcome, artifact, outputs, trace, evidence, started, log);
+
+          const rec = obs && detectRecovery(artifact, obs);
+          if (rec && underAttemptLimit(recoveryAttempts, rec)) {
+            log.info("recovery.apply", { stepId: step.id, code: rec.code, remedy: rec.remedy.kind, afterHandoff: true });
+            await applyRecovery(rec, opts.surface, log);
+            verified = await assertCheckpoint(step.checkpoint, opts.surface);
+          }
+        }
+        if (!verified) {
+          const obs = await safeObserve(opts.surface);
+          const r = fail(
+            "checkpoint_failed",
+            step.id,
+            step.checkpoint?.description ?? "operator completed the guarded step",
+            obs ? describeObservation(obs) : "could not observe the surface",
+            `Checkpoint failed after human handoff for ${step.id}`
+          );
+          r.interventionId = handoff.interventionId;
+          await captureFailure(opts.surface, log, r);
+          log.saveResult(r);
+          return r;
+        }
+
+        trace.push({
+          stepId: step.id,
+          action: step.action,
+          risk: step.risk,
+          startedAt: new Date(stepStarted).toISOString(),
+          durationMs: Date.now() - stepStarted,
+          status: "human",
+          interventionId: handoff.interventionId,
+        });
+        log.info("step.done", {
+          stepId: step.id,
+          action: step.action,
+          status: "human",
+          interventionId: handoff.interventionId,
+          checkpointVerified: !!step.checkpoint,
+        });
+        if (opts.captureStepScreenshots) {
+          await opts.surface.screenshot(log.screenshotPath(`step-${step.id}`));
+        }
+        continue stepLoop;
       }
       const r = fail("policy_denied", step.id, `a permitted ${step.risk} action`, "refused by policy", riskVerdict.reason);
       await captureFailure(opts.surface, log, r);
@@ -165,13 +246,34 @@ export async function replay(
     let attempt = 0;
     let stepStatus: StepTrace["status"] = "ok";
     let recoveryCode: string | undefined;
+    let stepInterventionId: string | undefined;
 
     for (;;) {
       attempt++;
+      // A missing act target can itself be the declared application answer (for example,
+      // there is no SAVINGS row). Check the already-rendered state once before entering
+      // bounded target polling. Transient controls still receive the full polling budget;
+      // known business outcomes return immediately instead of paying that latency first.
+      if (step.target && (step.action === "click" || step.action === "type" || step.action === "read")) {
+        const initial = await opts.surface.resolve(toTarget(step.target), { deadlineMs: 0 });
+        if (!initial.found) {
+          const initialObservation = await safeObserve(opts.surface);
+          const immediateOutcome = initialObservation && detectBusinessOutcome(artifact, initialObservation);
+          if (immediateOutcome) {
+            log.info("business_outcome.before_target_wait", { stepId: step.id, code: immediateOutcome.code });
+            return finishOutcome(immediateOutcome, artifact, outputs, trace, evidence, started, log);
+          }
+        }
+      }
       try {
         await executeStep(step, artifact, inputs, outputs, opts, log, overlay?.baseUrl);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        let message = err instanceof Error ? err.message : String(err);
+        try {
+          await opts.surface.assertPolicyBoundary();
+        } catch (boundary) {
+          message = boundary instanceof Error ? boundary.message : String(boundary);
+        }
         log.warn("step.action_error", { stepId: step.id, attempt, detail: message });
 
         // A policy denial is never a business outcome. It is a statement about what we are
@@ -201,6 +303,13 @@ export async function replay(
         }
         if (rec) {
           const r = fail("recovery_exhausted", step.id, `recovery "${rec.code}" to clear the condition`, message, `Recovery ${rec.code} exhausted after ${rec.maxAttempts} attempts`);
+          const handoff = await offerFailureHandoff(r, artifact, step.id, opts, log);
+          if (handoff?.released && step.checkpoint && await assertCheckpoint(step.checkpoint, opts.surface)) {
+            stepStatus = "human";
+            stepInterventionId = handoff.interventionId;
+            break;
+          }
+          if (handoff) r.interventionId = handoff.interventionId;
           await captureFailure(opts.surface, log, r);
           log.saveResult(r);
           return r;
@@ -212,12 +321,25 @@ export async function replay(
           break;
         }
 
-        const cls = /Could not resolve control/.test(message) ? "target_not_found" : "surface_error";
-        const r = fail(cls, step.id, step.target ? describeDescriptor(step.target) : step.action, message, message);
+        const cls = classifyActionFailure(message);
+        const expected = cls === "target_unreachable" ? "target application to be reachable" : step.target ? describeDescriptor(step.target) : step.action;
+        const r = fail(cls, step.id, expected, message, message);
+        const handoff = await offerFailureHandoff(r, artifact, step.id, opts, log);
+        if (handoff?.released && step.target) {
+          await opts.surface.waitForSettled(8000);
+          const resolved = await opts.surface.resolve(toTarget(step.target));
+          if (resolved.found && resolved.matchCount === 1) {
+            log.info("failure.handoff_recovered", { interventionId: handoff.interventionId, stepId: step.id, recovery: "target-resolved" });
+            continue;
+          }
+        }
+        if (handoff) r.interventionId = handoff.interventionId;
         await captureFailure(opts.surface, log, r);
         log.saveResult(r);
         return r;
       }
+
+      await opts.surface.assertPolicyBoundary();
 
       /* ------------------------------------------------ checkpoint */
       if (!step.checkpoint) break;
@@ -254,6 +376,13 @@ export async function replay(
         obs ? describeObservation(obs) : "could not observe the surface",
         `Checkpoint failed after ${step.action}: ${step.checkpoint.description}`
       );
+      const handoff = await offerFailureHandoff(r, artifact, step.id, opts, log);
+      if (handoff?.released && await assertCheckpoint(step.checkpoint, opts.surface)) {
+        stepStatus = "human";
+        stepInterventionId = handoff.interventionId;
+        break;
+      }
+      if (handoff) r.interventionId = handoff.interventionId;
       await captureFailure(opts.surface, log, r);
       log.saveResult(r);
       return r;
@@ -267,12 +396,16 @@ export async function replay(
       durationMs: Date.now() - stepStarted,
       status: stepStatus,
       recoveryCode,
+      interventionId: stepInterventionId,
     });
+    if (opts.captureStepScreenshots) {
+      await opts.surface.screenshot(log.screenshotPath(`step-${step.id}`));
+    }
     log.info("step.done", { stepId: step.id, action: step.action, status: stepStatus });
   }
 
   /* ---------------------------------------------------------- final checkpoint */
-  const successOk = await assertCheckpoint(artifact.successCheckpoint, opts.surface);
+  let successOk = await assertCheckpoint(artifact.successCheckpoint, opts.surface);
   if (!successOk) {
     const obs = await safeObserve(opts.surface);
     const outcome = obs && detectBusinessOutcome(artifact, obs);
@@ -285,9 +418,15 @@ export async function replay(
       obs ? describeObservation(obs) : "could not observe the surface",
       "Final success checkpoint did not hold"
     );
-    await captureFailure(opts.surface, log, r);
-    log.saveResult(r);
-    return r;
+    const handoff = await offerFailureHandoff(r, artifact, null, opts, log);
+    if (handoff?.released) successOk = await assertCheckpoint(artifact.successCheckpoint, opts.surface);
+    if (!successOk) {
+      if (handoff) r.interventionId = handoff.interventionId;
+      await captureFailure(opts.surface, log, r);
+      log.saveResult(r);
+      return r;
+    }
+    log.info("failure.handoff_recovered", { interventionId: handoff?.interventionId, stepId: null, recovery: "final-checkpoint" });
   }
 
   /* ---------------------------------------------------------- declared outputs */
@@ -300,6 +439,8 @@ export async function replay(
       `missing: ${missing.join(", ")}`,
       "Capability completed but did not produce its declared outputs"
     );
+    const handoff = await offerFailureHandoff(r, artifact, null, opts, log);
+    if (handoff) r.interventionId = handoff.interventionId;
     await captureFailure(opts.surface, log, r);
     log.saveResult(r);
     return r;
@@ -344,6 +485,15 @@ function validateInputs(
   return null;
 }
 
+/** Keep infrastructure reachability separate from locator drift and browser-surface faults. */
+function classifyActionFailure(message: string): FailedResult["failure"] {
+  if (/Could not resolve control/.test(message)) return "target_not_found";
+  if (/ERR_(?:CONNECTION_(?:REFUSED|CLOSED|RESET)|NAME_NOT_RESOLVED|INTERNET_DISCONNECTED|TIMED_OUT)|ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH/i.test(message)) {
+    return "target_unreachable";
+  }
+  return "surface_error";
+}
+
 function applyOverlay(step: Step, override: Partial<ElementDescriptor> | undefined): Step {
   if (!override || !step.target) return step;
   return { ...step, target: { ...step.target, ...override } as ElementDescriptor };
@@ -355,6 +505,8 @@ function toTarget(d: ElementDescriptor): ResolveTarget {
     name: d.name,
     nameMatch: d.nameMatch,
     index: d.index,
+    tableCell: d.tableCell,
+    recordedBounds: d.recordedBounds,
     within: d.within,
     frame: d.frame,
     fallbacks: d.fallbacks,
@@ -376,7 +528,7 @@ async function executeStep(
   step: Step,
   artifact: CapabilityArtifact,
   inputs: Record<string, string | number | boolean>,
-  outputs: Record<string, string | number | boolean>,
+  outputs: Record<string, OutputValue>,
   opts: ReplayOptions,
   log: EvidenceLog,
   overlayBaseUrl?: string
@@ -398,14 +550,14 @@ async function executeStep(
       return;
     }
     case "click": {
-      if (!step.target) throw new Error(`Step ${step.id}: click requires a target`);
       await surface.click(toTarget(step.target));
+      logResolution(surface, log, step.id);
       await surface.waitForSettled(8000);
       return;
     }
     case "type": {
-      if (!step.target) throw new Error(`Step ${step.id}: type requires a target`);
       await surface.type(toTarget(step.target), resolveValue(step.value, inputs));
+      logResolution(surface, log, step.id);
       return;
     }
     case "press": {
@@ -414,33 +566,62 @@ async function executeStep(
       return;
     }
     case "read": {
-      if (!step.target) throw new Error(`Step ${step.id}: read requires a target`);
-      if (!step.outputKey) throw new Error(`Step ${step.id}: read requires an outputKey`);
       const text = await surface.read(toTarget(step.target));
+      logResolution(surface, log, step.id);
       const decl = artifact.outputs.find((o) => o.name === step.outputKey);
-      outputs[step.outputKey] = decl?.type === "number" ? parseMoney(text) : text;
+      outputs[step.outputKey] = decl?.type === "currency"
+        ? parseCurrency(text)
+        : decl?.type === "number" ? parseNumber(text) : text;
+      if (decl?.sensitive) {
+        log.addSecret(text);
+        const output = outputs[step.outputKey];
+        if (typeof output === "object" && output && "amount" in output) {
+          log.addSecret(String(output.amount));
+        } else {
+          log.addSecret(String(output));
+        }
+      }
       log.info("step.read", {
         stepId: step.id,
         outputKey: step.outputKey,
-        // Value flows through the redactor via log.event.
         value: outputs[step.outputKey],
+        proof: {
+          type: decl?.type,
+          sha256: createHash("sha256").update(text).digest("hex"),
+          masked: maskProof(text),
+        },
       });
       return;
     }
-    case "select":
-      throw new Error("select is declared in the schema but not implemented on this surface");
     case "wait_for": {
-      if (!step.checkpoint) throw new Error(`Step ${step.id}: wait_for requires a checkpoint`);
       return;
     }
   }
 }
 
-/** "$8,241.55" -> 8241.55. Declared-number outputs get a number, not a string. */
-function parseMoney(text: string): number {
+function logResolution(surface: Surface, log: EvidenceLog, stepId: string): void {
+  const diagnostic = surface.consumeResolutionDiagnostic();
+  if (diagnostic && diagnostic.attempts > 1) {
+    log.info("target.resolved_after_wait", { stepId, attempts: diagnostic.attempts, strategy: diagnostic.strategy });
+  }
+}
+
+/** A formatted dollar value becomes a number. Declared-number outputs are not strings. */
+function parseNumber(text: string): number {
   const cleaned = text.replace(/[^0-9.\-]/g, "");
   const n = Number(cleaned);
-  return Number.isFinite(n) ? n : NaN;
+  if (!Number.isFinite(n)) throw new Error(`Could not parse ${JSON.stringify(text)} as a number`);
+  return n;
+}
+
+function parseCurrency(text: string): { amount: number; currency: string; display: string } {
+  return { amount: parseNumber(text), currency: "USD", display: text };
+}
+
+function maskProof(text: string): string {
+  const compact = text.replace(/\s+/g, "");
+  if (compact.length <= 4) return "*".repeat(compact.length);
+  return `${compact.slice(0, 2)}${"*".repeat(Math.min(6, compact.length - 4))}${compact.slice(-2)}`;
 }
 
 async function assertCheckpoint(cp: Checkpoint, surface: Surface): Promise<boolean> {
@@ -564,7 +745,7 @@ async function applyRecovery(rule: RecoveryRule, surface: Surface, log: Evidence
 function finishOutcome(
   rule: { code: string; description: string },
   artifact: CapabilityArtifact,
-  outputs: Record<string, string | number | boolean>,
+  outputs: Record<string, OutputValue>,
   trace: StepTrace[],
   evidence: { runId: string; logPath: string },
   started: number,
@@ -594,8 +775,11 @@ async function escalate(
   log: EvidenceLog,
   trace: StepTrace[],
   started: number,
-  evidence: { runId: string; logPath: string }
-): Promise<ReplayResult> {
+  evidence: ReplayEvidence
+): Promise<
+  | { status: "released"; interventionId: string }
+  | { status: "terminal"; result: EscalatedResult }
+> {
   const shot = log.screenshotPath("escalation");
   await opts.surface.screenshot(shot);
   const obs = await safeObserve(opts.surface);
@@ -613,7 +797,17 @@ async function escalate(
 
   log.warn("escalation.raised", { interventionId: req.id, reason, handoffUrl: req.handoffUrl });
 
-  const result: ReplayResult = {
+  evidence.screenshotPath = shot;
+  const waitMs = opts.handoffWaitMs ?? 120_000;
+  if (waitMs > 0) {
+    const settled = await opts.escalation!.waitForRelease(req.id, waitMs);
+    if (settled.state === "released") {
+      log.info("escalation.resumed", { interventionId: req.id, stepId });
+      return { status: "released", interventionId: req.id };
+    }
+  }
+
+  const result: EscalatedResult = {
     status: "escalated",
     capability: artifact.name,
     revision: artifact.revision,
@@ -621,12 +815,13 @@ async function escalate(
     reason,
     stepId,
     handoffUrl: req.handoffUrl,
+    resolution: waitMs === 0 ? "pending" : "abandoned",
     trace,
-    evidence: { ...evidence, screenshotPath: shot },
+    evidence,
     durationMs: Date.now() - started,
   };
   log.saveResult(result);
-  return result;
+  return { status: "terminal", result };
 }
 
 async function safeObserve(surface: Surface): Promise<Observation | undefined> {
@@ -649,6 +844,43 @@ async function captureFailure(surface: Surface, log: EvidenceLog, r: FailedResul
     expected: r.expected,
     observed: r.observed,
   });
+}
+
+/**
+ * Offer runtime breakage to an operator without changing the original failure taxonomy.
+ * Invalid contracts and policy refusals never reach this helper. A released operator gets
+ * exactly one deterministic verification/re-resolution attempt at the call site.
+ */
+async function offerFailureHandoff(
+  failure: FailedResult,
+  artifact: CapabilityArtifact,
+  stepId: string | null,
+  opts: ReplayOptions,
+  log: EvidenceLog
+): Promise<{ released: boolean; interventionId: string } | undefined> {
+  if (!opts.escalateOnFailure || !opts.escalation) return undefined;
+  if (failure.failure === "invalid_input" || failure.failure === "policy_denied") return undefined;
+
+  const shot = log.screenshotPath(`failure-escalation-${stepId ?? "final"}`);
+  await opts.surface.screenshot(shot);
+  const obs = await safeObserve(opts.surface);
+  const request = await opts.escalation.raise({
+    capability: artifact.name,
+    revision: artifact.revision,
+    stepId,
+    reason: `${failure.failure}: ${failure.message}`,
+    runId: log.runId,
+    location: obs?.location ?? await opts.surface.currentLocation().catch(() => ""),
+    screenshotPath: shot,
+  });
+  log.warn("failure.escalated", {
+    interventionId: request.id,
+    failure: failure.failure,
+    stepId,
+    expected: failure.expected,
+  });
+  const settled = await opts.escalation.waitForRelease(request.id, opts.handoffWaitMs ?? 120_000);
+  return { released: settled.state === "released", interventionId: request.id };
 }
 
 function describeObservation(obs: Observation): string {

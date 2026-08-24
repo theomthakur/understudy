@@ -19,6 +19,7 @@
 import express from "express";
 import type { Server } from "node:http";
 import type { EscalationBroker, InterventionRequest } from "./escalation.js";
+import type { HumanAction, ResolveTarget } from "../surface/surface.js";
 
 export function startOperatorServer(
   broker: EscalationBroker,
@@ -67,8 +68,17 @@ export function startOperatorServer(
     }
   });
 
-  app.post("/interventions/:id/abandon", (req, res) => {
-    broker.abandon(req.params.id, String(req.body.reason || "Operator abandoned"));
+  app.post("/interventions/:id/act", async (req, res) => {
+    try {
+      await broker.humanAction(req.params.id, parseHumanAction(req.body));
+      res.redirect(`/interventions/${req.params.id}`);
+    } catch (e) {
+      res.status(409).send(page(`<h1>Cannot act</h1><pre>${esc(String(e))}</pre>`));
+    }
+  });
+
+  app.post("/interventions/:id/abandon", async (req, res) => {
+    await broker.abandon(req.params.id, String(req.body.reason || "Operator abandoned"));
     res.redirect(`/interventions/${req.params.id}`);
   });
 
@@ -84,6 +94,14 @@ export function startOperatorServer(
   app.post("/api/interventions/:id/release", async (req, res) => {
     try {
       res.json(await broker.release(req.params.id, req.body?.note));
+    } catch (e) {
+      res.status(409).json({ error: String(e) });
+    }
+  });
+  app.post("/api/interventions/:id/act", async (req, res) => {
+    try {
+      await broker.humanAction(req.params.id, parseHumanAction(req.body));
+      res.json({ intervention: broker.get(req.params.id), humanEvents: broker.humanEvents() });
     } catch (e) {
       res.status(409).json({ error: String(e) });
     }
@@ -162,4 +180,29 @@ function page(body: string): string {
 
 function esc(s: string): string {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+}
+
+function parseHumanAction(body: Record<string, unknown> | undefined): HumanAction {
+  const kind = String(body?.kind ?? "");
+  if (kind === "press") {
+    const key = String(body?.key ?? "").trim();
+    if (!key) throw new Error("press requires key");
+    return { kind, key };
+  }
+  if (kind !== "click" && kind !== "type") throw new Error("kind must be click, type, or press");
+  const supplied = body?.target && typeof body.target === "object" ? body.target as Record<string, unknown> : {};
+  const role = String(supplied.role ?? body?.role ?? "").trim();
+  const name = String(supplied.name ?? body?.name ?? "").trim();
+  if (!role) throw new Error(`${kind} requires target.role`);
+  const frame = supplied.frame && typeof supplied.frame === "object" ? supplied.frame as Record<string, unknown> : {};
+  const strategy = frame.strategy === "name" || frame.strategy === "url-contains" ? frame.strategy : "main";
+  const target: ResolveTarget = {
+    role,
+    name: name || undefined,
+    nameMatch: supplied.nameMatch === "exact" || supplied.nameMatch === "regex" ? supplied.nameMatch : "contains",
+    frame: { strategy, value: typeof frame.value === "string" ? frame.value : undefined },
+    fallbacks: [],
+  };
+  if (kind === "type") return { kind, target, text: String(body?.text ?? "") };
+  return { kind, target };
 }

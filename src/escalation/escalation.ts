@@ -26,7 +26,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Surface } from "../surface/surface.js";
+import type { HumanAction, ResolveTarget, Surface } from "../surface/surface.js";
 import type { EvidenceLog } from "../evidence/logger.js";
 
 export type ControlHolder = "automation" | "awaiting_human" | "human";
@@ -76,9 +76,14 @@ export class EscalationBroker {
 
   constructor(
     private readonly surface: Surface,
-    private readonly log: EvidenceLog,
+    private log: EvidenceLog,
     private readonly operatorBaseUrl: string
   ) {}
+
+  /** Keep control-transfer events in the replay's audit stream, not a parallel log. */
+  useEvidenceLog(log: EvidenceLog): void {
+    this.log = log;
+  }
 
   get controlHolder(): ControlHolder {
     return this.control;
@@ -90,6 +95,10 @@ export class EscalationBroker {
 
   get(id: string): InterventionRequest | undefined {
     return this.requests.get(id);
+  }
+
+  humanEvents(): unknown[] {
+    return this.surface.collectHumanEvents();
   }
 
   /**
@@ -136,6 +145,28 @@ export class EscalationBroker {
     return req;
   }
 
+  /** One explicit operator action against the exact paused page and browser context. */
+  async humanAction(id: string, action: HumanAction): Promise<void> {
+    const req = this.mustGet(id);
+    if (req.state !== "claimed" || this.control !== "human") {
+      throw new Error(`Intervention ${id} must be claimed before an operator can act`);
+    }
+    await this.surface.humanAct(action);
+    this.log.warn("control.human_action", {
+      interventionId: id,
+      operator: req.claimedBy,
+      action: action.kind,
+      target: action.kind === "press" ? undefined : { role: action.target.role, name: action.target.name },
+      key: action.kind === "press" ? action.key : undefined,
+      textLength: action.kind === "type" ? action.text.length : undefined,
+      location: await this.surface.currentLocation(),
+    });
+  }
+
+  async humanClick(id: string, target: ResolveTarget): Promise<void> {
+    await this.humanAction(id, { kind: "click", target });
+  }
+
   /**
    * The human is done. Control returns to automation and the waiting run continues.
    *
@@ -150,6 +181,10 @@ export class EscalationBroker {
     req.releasedAt = new Date().toISOString();
     req.operatorNote = note;
 
+    // Let the owning client receive navigation/audit events triggered by the operator's
+    // final action before the lease flips back. Cross-client CDP delivery is asynchronous.
+    await this.surface.waitForSettled(1_000);
+    const humanEvents = this.surface.collectHumanEvents();
     await this.surface.resumeControl();
     this.control = "automation";
 
@@ -158,6 +193,7 @@ export class EscalationBroker {
       operator: req.claimedBy,
       note,
       durationMs: req.claimedAt ? Date.parse(req.releasedAt) - Date.parse(req.claimedAt) : undefined,
+      humanEvents,
     });
 
     this.waiters.get(id)?.(req);
@@ -165,10 +201,11 @@ export class EscalationBroker {
     return req;
   }
 
-  abandon(id: string, reason: string): InterventionRequest {
+  async abandon(id: string, reason: string): Promise<InterventionRequest> {
     const req = this.mustGet(id);
     req.state = "abandoned";
     req.operatorNote = reason;
+    await this.surface.resumeControl();
     this.control = "automation";
     this.log.error("control.abandoned", { interventionId: id, reason });
     this.waiters.get(id)?.(req);
@@ -190,7 +227,7 @@ export class EscalationBroker {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.waiters.delete(id);
-        resolve(this.abandon(id, `No operator responded within ${timeoutMs}ms`));
+        void this.abandon(id, `No operator responded within ${timeoutMs}ms`).then(resolve);
       }, timeoutMs);
 
       this.waiters.set(id, (r) => {

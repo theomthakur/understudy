@@ -3,11 +3,20 @@
   "name": "member.open_sub_account",
   "revision": 1,
   "title": "Open a sub-account for a member",
-  "description": "Opens a new sub-account. Ends at an irreversible confirmation step.",
+  "description": "Prepares a new sub-account, hands the irreversible confirmation to a person, then verifies and resumes.",
   "application": {
     "productId": "acme-core-banking",
+    "vendor": "Acme Financial Systems (synthetic)",
+    "product": "Core Banking Console",
+    "versionRange": ">=7 <8",
     "surface": "legacy-web",
     "baseUrl": "http://localhost:4471"
+  },
+  "policySnapshot": {
+    "allowedHosts": ["localhost"],
+    "allowedPathPrefixes": ["/"],
+    "allowedActions": ["navigate", "click", "type", "press", "read", "wait_for"],
+    "irreversiblePolicy": "escalate"
   },
   "inputs": [
     {
@@ -15,7 +24,7 @@
       "type": "string",
       "required": true,
       "description": "Member ID as shown in the console",
-      "sensitive": false,
+      "sensitive": true,
       "pattern": "^\\d{3,10}$"
     }
   ],
@@ -125,16 +134,57 @@
         },
         "fallbacks": []
       },
+      "risk": "safe",
+      "optional": false,
+      "checkpoint": {
+        "kind": "text-present",
+        "value": "Confirm New Sub-Account",
+        "timeoutMs": 8000,
+        "description": "Confirmation form is showing"
+      },
+      "discoveredBecause": "Open the confirmation form without committing the account"
+    },
+    {
+      "id": "s5",
+      "action": "type",
+      "target": {
+        "role": "textbox",
+        "name": "Sub-Account Nickname",
+        "nameMatch": "exact",
+        "frame": { "strategy": "main" },
+        "fallbacks": []
+      },
+      "value": { "kind": "literal", "value": "Holiday Savings" },
+      "risk": "safe",
+      "optional": false,
+      "discoveredBecause": "Prepare the reversible form input before human confirmation"
+    },
+    {
+      "id": "s6",
+      "action": "click",
+      "target": {
+        "role": "button",
+        "name": "Confirm and Open",
+        "nameMatch": "exact",
+        "frame": { "strategy": "main" },
+        "fallbacks": []
+      },
       "risk": "irreversible",
       "optional": false,
-      "discoveredBecause": "Begin opening the sub-account"
+      "checkpoint": {
+        "kind": "text-present",
+        "value": "Sub-Account Opened",
+        "timeoutMs": 8000,
+        "description": "Application confirms the sub-account was opened"
+      },
+      "discoveredBecause": "The irreversible confirmation must be completed by a human"
     }
   ],
   "successCheckpoint": {
     "kind": "text-present",
-    "value": "Member Profile",
+    "value": "Sub-Account Opened",
     "timeoutMs": 8000,
-    "description": "Reached the member profile"
+    "description": "Sub-account opened successfully"
   },
   "businessOutcomes": [
     {
@@ -232,6 +282,6 @@
     "goal": "Look up a member and read their savings balance",
     "model": "none \u2014 authored by hand so replay can be demonstrated without credentials",
     "discoveryRunId": "hand-authored-pending-discovery",
-    "stepCount": 4
+    "stepCount": 6
   }
 }

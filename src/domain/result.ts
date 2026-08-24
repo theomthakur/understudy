@@ -6,7 +6,8 @@
  * exception makes the capability unusable, because now the caller has to parse error strings
  * to find out whether the system broke or the member simply does not exist.
  *
- * So the return type has three arms, and they mean genuinely different things to a caller:
+ * So the return type has four arms: three terminal execution results and a non-terminal
+ * handoff state. They mean genuinely different things to a caller:
  *
  *   ok        - the capability did what it says, here are the typed outputs.
  *   outcome   - the capability ran correctly and the answer is a declared non-success state.
@@ -21,7 +22,17 @@
 
 import type { Risk } from "./artifact.js";
 
+export interface CurrencyValue {
+  amount: number;
+  currency: string;
+  display: string;
+}
+
+export type OutputValue = string | number | boolean | CurrencyValue;
+
 export type FailureClass =
+  /** The target application could not be reached at all. */
+  | "target_unreachable"
   /** The control we needed was not there, and no fallback matched. */
   | "target_not_found"
   /** We acted, but the checkpoint said we did not end up where we expected. */
@@ -32,7 +43,7 @@ export type FailureClass =
   | "policy_denied"
   /** Inputs did not satisfy the declared contract. Caught before touching the browser. */
   | "invalid_input"
-  /** The surface itself errored: navigation failed, page crashed, session died. */
+  /** The surface itself errored after contact: page crashed or the browser session died. */
   | "surface_error"
   /** Global budget exceeded. */
   | "timeout"
@@ -45,10 +56,12 @@ export interface StepTrace {
   risk: Risk;
   startedAt: string;
   durationMs: number;
-  status: "ok" | "recovered" | "skipped" | "failed";
+  status: "ok" | "recovered" | "skipped" | "failed" | "human";
   /** Human-readable, already redacted. */
   detail?: string;
   recoveryCode?: string;
+  /** Links a human-completed step to its intervention audit trail. */
+  interventionId?: string;
 }
 
 export interface ReplayEvidence {
@@ -63,7 +76,7 @@ export interface OkResult {
   status: "ok";
   capability: string;
   revision: number;
-  outputs: Record<string, string | number | boolean>;
+  outputs: Record<string, OutputValue>;
   trace: StepTrace[];
   evidence: ReplayEvidence;
   durationMs: number;
@@ -77,7 +90,7 @@ export interface OutcomeResult {
   code: string;
   description: string;
   /** Outputs read before the outcome was hit, if any. */
-  outputs: Record<string, string | number | boolean>;
+  outputs: Record<string, OutputValue>;
   trace: StepTrace[];
   evidence: ReplayEvidence;
   durationMs: number;
@@ -93,6 +106,8 @@ export interface FailedResult {
   expected: string;
   observed: string;
   message: string;
+  /** Present when a human handoff was attempted before the terminal failure. */
+  interventionId?: string;
   trace: StepTrace[];
   evidence: ReplayEvidence;
   durationMs: number;
@@ -107,6 +122,8 @@ export interface EscalatedResult {
   stepId: string | null;
   /** How the operator reaches the live session. */
   handoffUrl: string;
+  /** Pending when returned immediately; abandoned when the bounded wait elapsed. */
+  resolution?: "pending" | "abandoned";
   trace: StepTrace[];
   evidence: ReplayEvidence;
   durationMs: number;

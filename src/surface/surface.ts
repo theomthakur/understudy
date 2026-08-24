@@ -53,6 +53,8 @@ export interface ResolveTarget {
   name?: string;
   nameMatch: "exact" | "contains" | "regex";
   index?: number;
+  tableCell?: { rowLabel: string; columnLabel: string; tableName?: string };
+  recordedBounds?: { x: number; y: number; width: number; height: number };
   within?: { role: string; name?: string; hasText?: string };
   frame: { strategy: "main" | "name" | "url-contains"; value?: string };
   fallbacks: { kind: string; value: string; note?: string }[];
@@ -66,7 +68,16 @@ export interface ResolveResult {
   matchCount: number;
   handle?: unknown;
   detail?: string;
+  bounds?: { x: number; y: number; width: number; height: number };
+  /** Number of single-shot resolution attempts made by an explicitly bounded caller. */
+  attempts?: number;
 }
+
+/** A deliberately small, auditable operator vocabulary for the paused live surface. */
+export type HumanAction =
+  | { kind: "click"; target: ResolveTarget }
+  | { kind: "type"; target: ResolveTarget; text: string }
+  | { kind: "press"; key: string };
 
 export interface Surface {
   readonly kind: "web" | "legacy-web" | "desktop";
@@ -74,7 +85,7 @@ export interface Surface {
   open(url: string): Promise<void>;
   observe(): Promise<Observation>;
 
-  resolve(target: ResolveTarget): Promise<ResolveResult>;
+  resolve(target: ResolveTarget, opts?: { deadlineMs?: number }): Promise<ResolveResult>;
 
   click(target: ResolveTarget): Promise<void>;
   type(target: ResolveTarget, text: string): Promise<void>;
@@ -86,6 +97,11 @@ export interface Surface {
   currentLocation(): Promise<string>;
 
   screenshot(path: string): Promise<void>;
+  screenshotBuffer(): Promise<Buffer>;
+  /** Installs a browser-level guard that applies to click-triggered navigation too. */
+  setNavigationGuard(guard: (url: string) => { allow: boolean; reason?: string }): void;
+  /** Throws when the last action attempted a denied navigation or popup. */
+  assertPolicyBoundary(): Promise<void>;
   close(): Promise<void>;
 
   /**
@@ -98,4 +114,10 @@ export interface Surface {
   cedeControl(): Promise<void>;
   resumeControl(): Promise<void>;
   isAutomationInControl(): boolean;
+  collectHumanEvents(): unknown[];
+  /** Consumed by replay so delayed act-path resolution is visible in evidence. */
+  consumeResolutionDiagnostic(): { attempts: number; strategy?: string } | undefined;
+  /** Executes one explicit operator-console action while automation is paused. */
+  humanAct(action: HumanAction): Promise<void>;
+  humanClick(target: ResolveTarget): Promise<void>;
 }

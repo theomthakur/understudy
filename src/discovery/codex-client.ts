@@ -50,8 +50,9 @@ const ACTION_SCHEMA = {
     target: {
       type: ["object", "null"],
       additionalProperties: false,
-      required: ["role", "name", "nameMatch", "frame", "within"],
+      required: ["candidateId", "role", "name", "nameMatch", "frame", "within"],
       properties: {
+        candidateId: nullableString,
         role: { type: "string" },
         name: nullableString,
         nameMatch: { type: ["string", "null"], enum: ["exact", "contains", null] },
@@ -101,13 +102,15 @@ export class CodexCliClient implements LlmClient {
     }
   }
 
-  async complete(system: string, messages: LlmMessage[]): Promise<string> {
+  async complete(system: string, messages: LlmMessage[], image?: { mimeType: "image/png"; data: Buffer }): Promise<string> {
     const dir = await mkdtemp(join(tmpdir(), "understudy-planner-"));
     const schemaPath = join(dir, "action.schema.json");
     const outPath = join(dir, "action.json");
+    const imagePath = join(dir, "current-screen.png");
 
     try {
       await writeFile(schemaPath, JSON.stringify(ACTION_SCHEMA), "utf8");
+      if (image) await writeFile(imagePath, image.data);
 
       // The CLI is single-shot, so the conversation is flattened into one prompt. The
       // history matters — it is how the agent avoids repeating a refused action — so it is
@@ -138,6 +141,7 @@ export class CodexCliClient implements LlmClient {
         outPath,
       ];
       if (process.env.CODEX_MODEL) args.push("--model", process.env.CODEX_MODEL);
+      if (image) args.push("--image", imagePath);
 
       const { stdout, stderr } = await run(command, args);
 

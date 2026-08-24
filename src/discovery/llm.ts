@@ -19,7 +19,7 @@ export interface LlmMessage {
 
 export interface LlmClient {
   readonly modelId: string;
-  complete(system: string, messages: LlmMessage[]): Promise<string>;
+  complete(system: string, messages: LlmMessage[], image?: { mimeType: "image/png"; data: Buffer }): Promise<string>;
 }
 
 class AnthropicClient implements LlmClient {
@@ -28,9 +28,20 @@ class AnthropicClient implements LlmClient {
     readonly modelId: string
   ) {}
 
-  async complete(system: string, messages: LlmMessage[]): Promise<string> {
+  async complete(system: string, messages: LlmMessage[], image?: { mimeType: "image/png"; data: Buffer }): Promise<string> {
+    const apiMessages = messages.map((message, index) => {
+      if (!image || index !== messages.length - 1 || message.role !== "user") return message;
+      return {
+        role: message.role,
+        content: [
+          { type: "text", text: message.content },
+          { type: "image", source: { type: "base64", media_type: image.mimeType, data: image.data.toString("base64") } },
+        ],
+      };
+    });
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: AbortSignal.timeout(120_000),
       headers: {
         "content-type": "application/json",
         "x-api-key": this.apiKey,
@@ -41,7 +52,7 @@ class AnthropicClient implements LlmClient {
         max_tokens: 1400,
         temperature: 0,
         system,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: apiMessages,
       }),
     });
     if (!res.ok) {
@@ -59,9 +70,20 @@ class OpenAiCompatibleClient implements LlmClient {
     private readonly baseUrl: string
   ) {}
 
-  async complete(system: string, messages: LlmMessage[]): Promise<string> {
+  async complete(system: string, messages: LlmMessage[], image?: { mimeType: "image/png"; data: Buffer }): Promise<string> {
+    const apiMessages = messages.map((message, index) => {
+      if (!image || index !== messages.length - 1 || message.role !== "user") return message;
+      return {
+        role: message.role,
+        content: [
+          { type: "text", text: message.content },
+          { type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.data.toString("base64")}` } },
+        ],
+      };
+    });
     const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
+      signal: AbortSignal.timeout(120_000),
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${this.apiKey}`,
@@ -71,7 +93,7 @@ class OpenAiCompatibleClient implements LlmClient {
         temperature: 0,
         max_tokens: 1400,
         response_format: { type: "json_object" },
-        messages: [{ role: "system", content: system }, ...messages],
+        messages: [{ role: "system", content: system }, ...apiMessages],
       }),
     });
     if (!res.ok) {

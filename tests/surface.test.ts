@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { WebSurface } from "../src/surface/web-surface.js";
 import { parseAriaSnapshot } from "../src/surface/aria-snapshot.js";
 import type { ResolveTarget } from "../src/surface/surface.js";
+import { PolicyEngine, DEFAULT_POLICY } from "../src/policy/policy.js";
 
 const BASE = `http://localhost:${process.env.TARGET_PORT ?? 4471}`;
 let surface: WebSurface;
@@ -113,13 +114,35 @@ test("reports not-found rather than throwing, for a control that does not exist"
   assert.equal(r.matchCount, 0);
 });
 
+test("browser guard blocks click-triggered navigation before it leaves the allowlist", async () => {
+  const policy = new PolicyEngine({ ...DEFAULT_POLICY, allowedHosts: ["localhost"] });
+  surface.setNavigationGuard((url) => policy.checkUrl(url));
+  await surface.open(`${BASE}/policy-probe`);
+  await surface.click(target({ role: "link", name: "Leave approved application" })).catch(() => {});
+  await assert.rejects(() => surface.assertPolicyBoundary(), /Policy denied navigation.*allowlist/i);
+  surface.setNavigationGuard(() => ({ allow: true }));
+});
+
 test("refuses to act when a human holds control", async () => {
   await surface.open(BASE);
+  await assert.rejects(
+    () => surface.humanAct({ kind: "press", key: "Enter" }),
+    /while automation owns/,
+    "operator-console actions must not bypass the automation lease"
+  );
   await surface.cedeControl();
   await assert.rejects(
     () => surface.click(target({ role: "button", name: "Search" })),
     /does not hold control/,
     "automation must not act while a human has the session"
   );
+  await surface.humanAct({
+    kind: "type",
+    target: target({ role: "textbox", name: "Member ID" }),
+    text: "12345",
+  });
+  const humanEvents = JSON.stringify(surface.collectHumanEvents());
+  assert.doesNotMatch(humanEvents, /12345/, "raw operator-typed text must never be persisted");
+  assert.match(humanEvents, /"textLength":5/, "the audit keeps non-sensitive shape information");
   await surface.resumeControl();
 });

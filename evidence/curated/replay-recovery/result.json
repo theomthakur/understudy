@@ -1,0 +1,51 @@
+{
+  "status": "ok",
+  "capability": "member.read_savings_balance",
+  "revision": 1,
+  "outputs": {
+    "savingsBalance": {
+      "amount": "[REDACTED]",
+      "currency": "USD",
+      "display": "[REDACTED]"
+    }
+  },
+  "trace": [
+    {
+      "stepId": "s0",
+      "action": "navigate",
+      "risk": "safe",
+      "startedAt": "2026-08-23T18:16:19.584Z",
+      "durationMs": 212,
+      "status": "ok"
+    },
+    {
+      "stepId": "s1",
+      "action": "type",
+      "risk": "safe",
+      "startedAt": "2026-08-23T18:16:19.844Z",
+      "durationMs": 21,
+      "status": "ok"
+    },
+    {
+      "stepId": "s2",
+      "action": "click",
+      "risk": "safe",
+      "startedAt": "2026-08-23T18:16:19.880Z",
+      "durationMs": 232,
+      "status": "ok"
+    },
+    {
+      "stepId": "s3",
+      "action": "read",
+      "risk": "safe",
+      "startedAt": "2026-08-23T18:16:20.149Z",
+      "durationMs": 43,
+      "status": "ok"
+    }
+  ],
+  "evidence": {
+    "runId": "replay-20260823T181619-uov6o",
+    "logPath": "evidence/curated/replay-recovery/events.jsonl"
+  },
+  "durationMs": 3160
+}

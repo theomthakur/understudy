@@ -1,0 +1,121 @@
+{
+  "generatedAt": "2026-08-23T18:16:37.868Z",
+  "environment": "synthetic",
+  "discovery": {
+    "model": "codex-cli:account-default",
+    "syntheticInput": "12345",
+    "events": "evidence/examples/01-discovery-live/events.jsonl"
+  },
+  "guarantees": {
+    "replayModelInvocations": 0,
+    "curatedByExactRunId": true,
+    "rawSensitiveValuesExcludedFromStructuredLogs": true
+  },
+  "cases": [
+    {
+      "label": "replay-success",
+      "capability": "member.read_savings_balance",
+      "syntheticInput": "22871",
+      "expectedStatus": "ok",
+      "resultPath": "evidence/curated/replay-success/result.json",
+      "screenshotPaths": [
+        "evidence/curated/replay-success/step-s0.png",
+        "evidence/curated/replay-success/step-s1.png",
+        "evidence/curated/replay-success/step-s2.png",
+        "evidence/curated/replay-success/step-s3.png"
+      ]
+    },
+    {
+      "label": "replay-no-savings",
+      "capability": "member.read_savings_balance",
+      "syntheticInput": "44120",
+      "expectedStatus": "outcome",
+      "expectedCode": "NO_SAVINGS_ACCOUNT",
+      "resultPath": "evidence/curated/replay-no-savings/result.json",
+      "screenshotPaths": [
+        "evidence/curated/replay-no-savings/step-s0.png",
+        "evidence/curated/replay-no-savings/step-s1.png",
+        "evidence/curated/replay-no-savings/step-s2.png"
+      ]
+    },
+    {
+      "label": "replay-not-found",
+      "capability": "member.read_savings_balance",
+      "syntheticInput": "99999",
+      "expectedStatus": "outcome",
+      "expectedCode": "MEMBER_NOT_FOUND",
+      "resultPath": "evidence/curated/replay-not-found/result.json",
+      "screenshotPaths": [
+        "evidence/curated/replay-not-found/step-s0.png",
+        "evidence/curated/replay-not-found/step-s1.png"
+      ]
+    },
+    {
+      "label": "replay-permission-denied",
+      "capability": "member.read_savings_balance",
+      "syntheticInput": "30099",
+      "expectedStatus": "outcome",
+      "expectedCode": "PERMISSION_DENIED",
+      "resultPath": "evidence/curated/replay-permission-denied/result.json",
+      "screenshotPaths": [
+        "evidence/curated/replay-permission-denied/step-s0.png",
+        "evidence/curated/replay-permission-denied/step-s1.png"
+      ]
+    },
+    {
+      "label": "replay-recovery",
+      "capability": "member.read_savings_balance",
+      "syntheticInput": "12345",
+      "expectedStatus": "ok",
+      "resultPath": "evidence/curated/replay-recovery/result.json",
+      "screenshotPaths": [
+        "evidence/curated/replay-recovery/step-s0.png",
+        "evidence/curated/replay-recovery/step-s1.png",
+        "evidence/curated/replay-recovery/step-s2.png",
+        "evidence/curated/replay-recovery/step-s3.png"
+      ]
+    },
+    {
+      "label": "replay-hard-failure",
+      "capability": "member.read_savings_balance",
+      "syntheticInput": "12345",
+      "expectedStatus": "failed",
+      "expectedFailure": "target_not_found",
+      "resultPath": "evidence/curated/replay-hard-failure/result.json",
+      "screenshotPaths": [
+        "evidence/curated/replay-hard-failure/failure.png",
+        "evidence/curated/replay-hard-failure/step-s0.png",
+        "evidence/curated/replay-hard-failure/step-s1.png"
+      ]
+    },
+    {
+      "label": "replay-second-tenant",
+      "capability": "member.read_savings_balance",
+      "syntheticInput": "12345",
+      "expectedStatus": "ok",
+      "resultPath": "evidence/curated/replay-second-tenant/result.json",
+      "screenshotPaths": [
+        "evidence/curated/replay-second-tenant/step-s0.png",
+        "evidence/curated/replay-second-tenant/step-s1.png",
+        "evidence/curated/replay-second-tenant/step-s2.png",
+        "evidence/curated/replay-second-tenant/step-s3.png"
+      ]
+    },
+    {
+      "label": "replay-handoff",
+      "capability": "member.open_sub_account",
+      "syntheticInput": "12345",
+      "expectedStatus": "ok",
+      "resultPath": "evidence/curated/replay-handoff/result.json",
+      "screenshotPaths": [
+        "evidence/curated/replay-handoff/escalation.png",
+        "evidence/curated/replay-handoff/step-s0.png",
+        "evidence/curated/replay-handoff/step-s1.png",
+        "evidence/curated/replay-handoff/step-s2.png",
+        "evidence/curated/replay-handoff/step-s4.png",
+        "evidence/curated/replay-handoff/step-s5.png",
+        "evidence/curated/replay-handoff/step-s6.png"
+      ]
+    }
+  ]
+}

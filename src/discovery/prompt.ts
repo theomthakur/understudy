@@ -17,7 +17,7 @@ import type { Observation } from "../surface/surface.js";
 
 export const SYSTEM_PROMPT = `You operate a business application the way a human operator would, by reading the controls on screen and acting on them.
 
-You will be shown the CONTROLS currently visible, described by their accessibility role and their visible label. This is the same information a screen reader would give a person. You cannot see HTML, CSS, or element IDs, and you must not invent them.
+You will be shown a screenshot plus numbered CANDIDATE CONTROLS described by accessibility role and visible label. Use the screenshot to understand layout and state, but you may only act through a candidate ID. You cannot see HTML, CSS, or element IDs, and you must not invent them.
 
 Respond with EXACTLY ONE JSON object and nothing else. No prose, no markdown fences.
 
@@ -25,14 +25,15 @@ Shape:
 {
   "action": "click" | "type" | "press" | "read" | "navigate" | "done" | "give_up",
   "reason": "one short sentence on why this is the right next action",
-  "target": { "role": "...", "name": "...", "nameMatch": "exact" | "contains", "frame": "...", "within": { "role": "...", "name": "..." } },
+  "target": { "candidateId": "e001", "role": "...", "name": "...", "nameMatch": "exact" | "contains", "frame": "...", "within": { "role": "...", "name": "..." } },
   "text": "text to type, key to press, or url to navigate to",
   "outputKey": "for read: which declared output this fills",
   "successText": "for done: a distinctive phrase on screen that proves the goal was reached"
 }
 
 Rules:
-- "target.role" and "target.name" must come from the CONTROLS list exactly as shown. If what you want is not listed, it is not available; pick something that is, or give up.
+- "target.candidateId" must be copied from the CANDIDATE CONTROLS list. Runtime resolution ignores invented coordinates and only permits one of these IDs.
+- "target.role" and "target.name" must match that candidate exactly.
 - Copy "frame" from the control's frame value in the list. Frames matter; this app uses them.
 - Use "within" when the same label appears more than once and you need to scope it.
   "within": { "role": "row", "hasText": "SAVINGS" } means "inside the row that mentions SAVINGS".
@@ -62,18 +63,33 @@ export interface ObservationPromptInput {
   actionsSoFar: string[];
 }
 
+export const MAX_PROMPT_CANDIDATES = 90;
+
+const ACTIONABLE_ROLES = new Set([
+  "button", "checkbox", "combobox", "link", "menuitem", "option", "radio",
+  "searchbox", "slider", "spinbutton", "switch", "tab", "textbox",
+]);
+
 export function renderObservation(i: ObservationPromptInput): string {
-  const controls = i.observation.tree
-    .filter((n) => n.name || n.value)
-    .slice(0, 90) // budget guard: a legacy grid can emit hundreds of cells
-    .map((n) => {
+  const eligible = i.observation.tree.filter((n) => n.name || n.value);
+  const indexed = eligible.map((node) => ({ node, originalIndex: i.observation.tree.indexOf(node) }));
+  const prioritized = [
+    ...indexed.filter(({ node }) => node.focusable || ACTIONABLE_ROLES.has(node.role)),
+    ...indexed.filter(({ node }) => !node.focusable && !ACTIONABLE_ROLES.has(node.role)),
+  ];
+  const shown = prioritized.slice(0, MAX_PROMPT_CANDIDATES);
+  const controls = shown
+    .map(({ node: n, originalIndex }) => {
       const bits = [`role=${n.role}`, `name="${n.name}"`];
       if (n.value) bits.push(`value="${n.value}"`);
       if (n.disabled) bits.push("disabled");
       bits.push(`frame=${n.frame}`);
-      return `  - ${bits.join(" ")}`;
+      return `  - [e${String(originalIndex + 1).padStart(3, "0")}] ${bits.join(" ")}`;
     })
     .join("\n");
+  const budget = shown.length < eligible.length
+    ? `\nCANDIDATE BUDGET: showing ${shown.length} of ${eligible.length}; ${eligible.length - shown.length} informational nodes omitted.`
+    : `\nCANDIDATE BUDGET: showing all ${shown.length} candidates.`;
 
   const params = i.inputs
     .map((p) => `  - ${p.name} (${p.type}) = ${JSON.stringify(i.inputValues[p.name] ?? "")}  — ${p.description}`)
@@ -101,8 +117,8 @@ STEP ${i.stepNumber} of ${i.maxSteps}
 CURRENT LOCATION: ${i.observation.location}
 PAGE TITLE: ${i.observation.title}${notices}${done}
 
-CONTROLS:
-${controls || "  (no interactive controls detected)"}
+CANDIDATE CONTROLS:
+${controls || "  (no interactive controls detected)"}${budget}
 
 What is the single next action?`;
 }

@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: understudy-capability-studio
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: UNDERSTUDY_PUBLIC_DEMO
+        value: "1"
+      - key: NODE_ENV
+        value: production

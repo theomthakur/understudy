@@ -26,6 +26,7 @@
  */
 
 import { z } from "zod";
+import { createHash } from "node:crypto";
 
 export const SCHEMA_VERSION = "1.0.0" as const;
 
@@ -51,6 +52,16 @@ export const ElementDescriptorSchema = z.object({
   nameMatch: z.enum(["exact", "contains", "regex"]).default("exact"),
   /** Nth match when the name is genuinely ambiguous. Zero-based. Avoid if possible. */
   index: z.number().int().nonnegative().optional(),
+  /** First-class relational targeting for legacy data grids. */
+  tableCell: z.object({
+    rowLabel: z.string(),
+    columnLabel: z.string(),
+    tableName: z.string().optional(),
+  }).optional(),
+  /** Discovery-time geometry; evidence and future coordinate fallback, never the primary locator. */
+  recordedBounds: z.object({
+    x: z.number(), y: z.number(), width: z.number(), height: z.number(),
+  }).optional(),
   /**
    * Optional scoping: only look inside a container.
    *
@@ -137,15 +148,7 @@ export const CheckpointSchema: z.ZodType<Checkpoint, z.ZodTypeDef, unknown> = z.
 
 /* ------------------------------------------------------------------ steps */
 
-export const ActionKind = z.enum([
-  "navigate",
-  "click",
-  "type",
-  "select",
-  "press",
-  "read",
-  "wait_for",
-]);
+export const ActionKind = z.enum(["navigate", "click", "type", "press", "read", "wait_for"]);
 export type ActionKind = z.infer<typeof ActionKind>;
 
 /**
@@ -158,15 +161,8 @@ export type ActionKind = z.infer<typeof ActionKind>;
 export const RiskSchema = z.enum(["safe", "elevated", "irreversible"]);
 export type Risk = z.infer<typeof RiskSchema>;
 
-export const StepSchema = z.object({
+const StepBaseSchema = z.object({
   id: z.string(),
-  action: ActionKind,
-  /** Absent for navigate/press. */
-  target: ElementDescriptorSchema.optional(),
-  /** For type/select/navigate. */
-  value: ValueSchema.optional(),
-  /** For read: the output field this populates. */
-  outputKey: z.string().optional(),
   risk: RiskSchema.default("safe"),
   /** Asserted after the action. Absent means the action is not expected to change state. */
   checkpoint: CheckpointSchema.optional(),
@@ -175,11 +171,21 @@ export const StepSchema = z.object({
   /** If true, replay tolerates this step not matching (used for optional interstitials). */
   optional: z.boolean().default(false),
 });
+
+/** Invalid action shapes are rejected while parsing, not midway through replay. */
+export const StepSchema = z.discriminatedUnion("action", [
+  StepBaseSchema.extend({ action: z.literal("navigate"), target: z.undefined().optional(), value: ValueSchema, outputKey: z.undefined().optional() }),
+  StepBaseSchema.extend({ action: z.literal("click"), target: ElementDescriptorSchema, value: z.undefined().optional(), outputKey: z.undefined().optional() }),
+  StepBaseSchema.extend({ action: z.literal("type"), target: ElementDescriptorSchema, value: ValueSchema, outputKey: z.undefined().optional() }),
+  StepBaseSchema.extend({ action: z.literal("press"), target: z.undefined().optional(), value: ValueSchema, outputKey: z.undefined().optional() }),
+  StepBaseSchema.extend({ action: z.literal("read"), target: ElementDescriptorSchema, value: z.undefined().optional(), outputKey: z.string() }),
+  StepBaseSchema.extend({ action: z.literal("wait_for"), target: z.undefined().optional(), value: z.undefined().optional(), outputKey: z.undefined().optional(), checkpoint: CheckpointSchema }),
+]);
 export type Step = z.infer<typeof StepSchema>;
 
 /* ------------------------------------------------------------------ io contract */
 
-const ParamTypeSchema = z.enum(["string", "number", "boolean"]);
+const ParamTypeSchema = z.enum(["string", "number", "boolean", "currency"]);
 
 export const InputParamSchema = z.object({
   name: z.string(),
@@ -272,8 +278,24 @@ export const CapabilityArtifactSchema = z.object({
   /** Which app this belongs to, so overlays and drift are scoped to a product, not a URL. */
   application: z.object({
     productId: z.string(),
+    vendor: z.string().default("Acme Financial Systems (synthetic)"),
+    product: z.string().default("Core Banking Console"),
+    versionRange: z.string().default(">=7 <8"),
     surface: z.enum(["web", "legacy-web", "desktop"]),
     baseUrl: z.string().optional(),
+  }),
+
+  /** The policy in force when the capability was recorded, for review and provenance. */
+  policySnapshot: z.object({
+    allowedHosts: z.array(z.string()),
+    allowedPathPrefixes: z.array(z.string()),
+    allowedActions: z.array(ActionKind),
+    irreversiblePolicy: z.enum(["allow", "escalate", "refuse"]),
+  }).default({
+    allowedHosts: ["localhost"],
+    allowedPathPrefixes: ["/"],
+    allowedActions: ["navigate", "click", "type", "press", "read", "wait_for"],
+    irreversiblePolicy: "escalate",
   }),
 
   inputs: z.array(InputParamSchema).default([]),
@@ -309,9 +331,17 @@ export const CapabilityArtifactSchema = z.object({
     /** Deliberately NOT the raw transcript. See REPORT.md §2. */
     transcriptRef: z.string().optional(),
   }),
+  artifactHash: z.string().optional(),
 });
 export type CapabilityArtifact = z.infer<typeof CapabilityArtifactSchema>;
 
 export function parseArtifact(raw: unknown): CapabilityArtifact {
   return CapabilityArtifactSchema.parse(raw);
+}
+
+/** Hash the parsed executable contract, excluding the hash field itself. */
+export function computeArtifactHash(raw: CapabilityArtifact): string {
+  const parsed = CapabilityArtifactSchema.parse(raw);
+  delete parsed.artifactHash;
+  return createHash("sha256").update(JSON.stringify(parsed)).digest("hex");
 }

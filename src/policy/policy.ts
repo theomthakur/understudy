@@ -24,7 +24,7 @@ export interface PolicyConfig {
   /** Path prefixes within those hosts. Empty means all paths. */
   allowedPathPrefixes: string[];
   /** Action kinds the agent may perform at all. */
-  allowedActions: ("navigate" | "click" | "type" | "select" | "press" | "read" | "wait_for")[];
+  allowedActions: ("navigate" | "click" | "type" | "press" | "read" | "wait_for")[];
   /**
    * How to treat an irreversible step during unattended replay.
    *   refuse   - fail closed. The default.
@@ -41,7 +41,7 @@ export interface PolicyConfig {
 export const DEFAULT_POLICY: PolicyConfig = {
   allowedHosts: ["localhost", "127.0.0.1"],
   allowedPathPrefixes: [],
-  allowedActions: ["navigate", "click", "type", "select", "press", "read", "wait_for"],
+  allowedActions: ["navigate", "click", "type", "press", "read", "wait_for"],
   irreversiblePolicy: "escalate",
   requireApprovalForIrreversible: true,
   maxSteps: 40,

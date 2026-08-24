@@ -3,45 +3,49 @@
   "capability": "member.read_savings_balance",
   "revision": 1,
   "outputs": {
-    "savingsBalance": 8241.55
+    "savingsBalance": {
+      "amount": "[REDACTED]",
+      "currency": "USD",
+      "display": "[REDACTED]"
+    }
   },
   "trace": [
     {
       "stepId": "s0",
       "action": "navigate",
       "risk": "safe",
-      "startedAt": "2026-08-13T06:09:26.597Z",
-      "durationMs": 223,
+      "startedAt": "2026-08-23T18:15:51.546Z",
+      "durationMs": 225,
       "status": "ok"
     },
     {
       "stepId": "s1",
       "action": "type",
       "risk": "safe",
-      "startedAt": "2026-08-13T06:09:26.821Z",
-      "durationMs": 54,
+      "startedAt": "2026-08-23T18:15:51.815Z",
+      "durationMs": 31,
       "status": "ok"
     },
     {
       "stepId": "s2",
       "action": "click",
       "risk": "safe",
-      "startedAt": "2026-08-13T06:09:26.876Z",
-      "durationMs": 235,
+      "startedAt": "2026-08-23T18:15:51.868Z",
+      "durationMs": 256,
       "status": "ok"
     },
     {
       "stepId": "s3",
       "action": "read",
       "risk": "safe",
-      "startedAt": "2026-08-13T06:09:27.112Z",
-      "durationMs": 27,
+      "startedAt": "2026-08-23T18:15:52.157Z",
+      "durationMs": 57,
       "status": "ok"
     }
   ],
   "evidence": {
-    "runId": "replay-20260813T060926-mqiby",
-    "logPath": "evidence/runs/replay-20260813T060926-mqiby/events.jsonl"
+    "runId": "replay-20260823T181551-33op0",
+    "logPath": "evidence/curated/replay-success/events.jsonl"
   },
-  "durationMs": 3103
+  "durationMs": 3227
 }

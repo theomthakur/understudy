@@ -57,7 +57,16 @@ ${opts.body}
 }
 
 /** Landing / member search. Table-based layout, no test ids. */
-export function searchPage(tenant: string, error?: string): string {
+export function searchPage(tenant: string, error?: string, inputDelayMs = 0): string {
+  const memberInput = '<input type="text" id="ctl00_MainPlaceHolder_txtMemberId" name="memberId" size="18" autocomplete="off">';
+  const renderedInput = inputDelayMs > 0
+    ? `<span id="delayed-member-input"></span><script>
+         setTimeout(function () {
+           var slot = document.getElementById("delayed-member-input");
+           if (slot) { slot.insertAdjacentHTML("beforebegin", ${JSON.stringify(memberInput)}); slot.remove(); }
+         }, ${inputDelayMs});
+       </script>`
+    : memberInput;
   return chrome({
     title: "Member Search",
     tenant,
@@ -69,7 +78,7 @@ export function searchPage(tenant: string, error?: string): string {
     <table class="layout" style="width:auto">
       <tr>
         <td><label for="ctl00_MainPlaceHolder_txtMemberId">Member ID</label></td>
-        <td><input type="text" id="ctl00_MainPlaceHolder_txtMemberId" name="memberId" size="18" autocomplete="off"></td>
+        <td>${renderedInput}</td>
         <td><input type="submit" class="btn" id="ctl00_MainPlaceHolder_btnSearch" value="Search"></td>
       </tr>
     </table>

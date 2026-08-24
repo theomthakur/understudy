@@ -28,7 +28,7 @@ function discoveryFixture(): DiscoveryResult {
     actions: [
       {
         index: 0,
-        proposed: { action: "type", reason: "Enter the member id", target: { role: "textbox", name: "Member ID" }, text: "12345" },
+        proposed: { action: "type", reason: "Enter the member id", target: { candidateId: "e001", role: "textbox", name: "Member ID" }, text: "12345" },
         executedTarget: {
           role: "textbox",
           name: "Member ID",
@@ -44,7 +44,7 @@ function discoveryFixture(): DiscoveryResult {
       },
       {
         index: 1,
-        proposed: { action: "click", reason: "Submit the search", target: { role: "button", name: "Search" } },
+        proposed: { action: "click", reason: "Submit the search", target: { candidateId: "e002", role: "button", name: "Search" } },
         executedTarget: {
           role: "button",
           name: "Search",
@@ -143,6 +143,56 @@ test("recorder builds a fallback ladder and never records a brittle id", () => {
       assert.notEqual(fb.kind, "css", "the app's ids carry row indexes; recording one is a trap");
       assert.notEqual(fb.kind, "xpath");
     }
+  }
+});
+
+test("recorder strips value-shaped fallbacks when it generalises a volatile read target", () => {
+  const d = discoveryFixture();
+  d.actions.push({
+    index: 2,
+    proposed: {
+      action: "read",
+      reason: "Capture the savings balance",
+      target: { candidateId: "e003", role: "cell", name: "$9,876.54" },
+      outputKey: "savingsBalance",
+    },
+    executedTarget: {
+      role: "cell",
+      name: "$9,876.54",
+      nameMatch: "exact",
+      within: { role: "row", hasText: "SAVINGS" },
+      frame: { strategy: "main" },
+      // What hardenDescriptor would have produced before generalisation ran: a fallback
+      // carrying the record's balance. The recorder must not let this reach the artifact.
+      fallbacks: [{ kind: "role-name", value: "$9,876.54", note: "substring" }],
+    },
+    strategy: "role-name",
+    matchCount: 1,
+    risk: "safe",
+    readValue: "$9,876.54",
+    observationAfter: { location: `${BASE}/workspace?memberId=12345`, title: "Member 12345", notices: [] },
+  });
+  const a = record({
+    name: "member.read_savings_balance",
+    title: "t",
+    description: "d",
+    productId: "p",
+    baseUrl: BASE,
+    startUrl: BASE,
+    inputs: [{ name: "memberId", type: "string", required: true, description: "", sensitive: false }],
+    outputs: [{ name: "savingsBalance", type: "currency", description: "", sensitive: false }],
+    inputValues: { memberId: "12345" },
+    discovery: d,
+    runId: "r",
+  });
+  const read = a.steps.find((s) => s.action === "read")!;
+  assert.ok(read.target!.tableCell, "the volatile name must become a relational target");
+  assert.equal(read.target!.name, undefined, "the record's balance must not remain the primary name");
+  for (const fb of read.target!.fallbacks) {
+    assert.ok(
+      !/^[$£€]?[\d,.]+$/.test(fb.value),
+      `fallback "${fb.value}" freezes this run's record data into the artifact`
+    );
   }
 });
 

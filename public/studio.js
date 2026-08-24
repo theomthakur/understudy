@@ -34,6 +34,8 @@ function showView(name) {
   const meta = pageMeta[name] || pageMeta.overview;
   $(".page-kicker").textContent = meta[0];
   $(".page-title").textContent = meta[1];
+  if (name === "overview") history.replaceState(null, "", location.pathname);
+  else history.replaceState(null, "", `#${name}`);
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 
@@ -323,6 +325,13 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "End") { event.preventDefault(); showSlide(slides.length - 1); }
 });
 showSlide(0);
+
+const initialView = location.hash.replace("#", "");
+if (pageMeta[initialView] && initialView !== "overview") showView(initialView);
+window.addEventListener("hashchange", () => {
+  const name = location.hash.replace("#", "") || "overview";
+  if (pageMeta[name] && name !== state.view) showView(name);
+});
 
 renderTimeline(replaySteps);
 loadStudioData();

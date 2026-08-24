@@ -77,6 +77,8 @@ A focused five-minute path:
 4. In **Human review**, start the guarded run, claim the same paused session, complete the explicit human action, and return control. Replay verifies the checkpoint before it finishes.
 5. **Design decisions** is the register of the eighteen load-bearing choices, the alternative each replaced, and where each lives in the code. **Presentation** walks the whole submission in thirteen slides, including the architecture diagram, for review without leaving the browser.
 
+Each section deep-links: `/studio#decisions` and `/studio#presentation` open those views directly.
+
 Replay never needs model credentials. The Studio’s discovery tab shows a committed genuine model run rather than spending a reviewer’s token or requiring their account.
 
 ## The vertical slice

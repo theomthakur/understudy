@@ -1,6 +1,6 @@
 const state = {
   view: "overview",
-  mode: "replay",
+  mode: "discovery",
   running: false,
   handoff: "idle",
   interventionId: null,
@@ -12,6 +12,9 @@ const views = [...document.querySelectorAll(".view")];
 const navButtons = [...document.querySelectorAll("[data-view]")];
 const iframe = $("#legacy-frame");
 const runButton = $("#run-capability");
+const discoveryGoal = $("#discovery-goal");
+const capabilityBox = $("#capability-box");
+const inspectDiscovery = $("#inspect-discovery");
 const memberInput = $("#member-id");
 const timeline = $("#timeline");
 const output = $("#run-output");
@@ -20,7 +23,7 @@ const toast = $("#toast");
 
 const pageMeta = {
   overview: ["Candidate Project", "Capability overview"],
-  studio: ["Working Demo", "Deterministic replay"],
+  studio: ["Working Demo", "Guided demo"],
   evidence: ["Artifact & Evidence", "Proof"],
   interventions: ["Control Transfer", "Human review"],
   decisions: ["Design Rationale", "Design decisions"],
@@ -40,7 +43,10 @@ function showView(name) {
 }
 
 navButtons.forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
-document.querySelectorAll("[data-go]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.go)));
+document.querySelectorAll("[data-go]").forEach((button) => button.addEventListener("click", () => {
+  if (button.dataset.modeGo) setMode(button.dataset.modeGo);
+  showView(button.dataset.go);
+}));
 
 function notify(headline, detail) {
   toast.querySelector("strong").textContent = headline;
@@ -92,18 +98,27 @@ function targetUrl(memberId) {
 function setMode(mode) {
   state.mode = mode;
   document.querySelectorAll(".mode-button").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
-  $("#mode-title").textContent = mode === "replay" ? "Invoke saved capability" : "Genuine LLM discovery";
-  $("#mode-description").textContent = mode === "replay" ? "Approved path · deterministic · no model decisions" : "Evidence path · genuine model-driven computer use";
+  $("#mode-title").textContent = mode === "replay" ? "Invoke the approved capability" : "Give the model a goal";
+  $("#mode-description").textContent = mode === "replay" ? "New input · fixed steps · no model decisions" : "Natural language in · reviewed capability out";
   $("#goal-label").textContent = mode === "replay" ? "Capability" : "Natural-language goal";
-  $("#goal-box").textContent = mode === "replay" ? "member.read_savings_balance · revision 1" : "Look up a member and return the current SAVINGS balance.";
-  $("#parameter-field").style.display = mode === "replay" ? "block" : "none";
-  runButton.textContent = mode === "replay" ? "Run deterministic replay →" : "Open discovery proof →";
-  $("#model-zero").style.display = mode === "replay" ? "flex" : "none";
+  discoveryGoal.hidden = mode === "replay";
+  capabilityBox.hidden = mode !== "replay";
+  $("#parameter-field").hidden = mode !== "replay";
+  runButton.textContent = mode === "replay" ? "Run deterministic replay →" : "Copy live discovery command →";
+  inspectDiscovery.hidden = mode === "replay";
+  $("#model-zero").hidden = mode !== "replay";
+  const note = $("#mode-note");
+  note.classList.toggle("discovery-note", mode === "discovery");
+  note.querySelector(".check").textContent = mode === "replay" ? "✓" : "i";
+  note.querySelector("strong").textContent = mode === "replay" ? "Policy preflight passed." : "Live discovery uses the CLI.";
+  $("#mode-note-detail").textContent = mode === "replay"
+    ? " Origin, route, action type, and input contract are allowlisted."
+    : " The model needs local credentials. This Studio copies the exact command; the proof tab shows a genuine committed run of the default goal.";
   renderTimeline(mode === "replay" ? replaySteps : discoverySteps);
   if (mode === "discovery") {
     iframe.src = targetUrl("12345");
     surfaceAddress.textContent = "Committed discovery · synthetic input [redacted]";
-    output.innerHTML = `<div class="output-label">Artifact compiled</div><div class="output-value">4 steps</div><div class="output-sub">Typed contract · relational locator · bounded recovery rules</div>`;
+    output.innerHTML = `<div class="output-label">Committed example artifact</div><div class="output-value">4 steps</div><div class="output-sub">Saved from the default goal · inspect the genuine proof beside it</div>`;
   } else {
     iframe.src = targetUrl(memberInput.value || "22871");
     surfaceAddress.textContent = targetUrl(memberInput.value || "22871");
@@ -115,8 +130,16 @@ document.querySelectorAll(".mode-button").forEach((button) => button.addEventLis
 
 async function runReplay() {
   if (state.mode === "discovery") {
-    showView("evidence");
-    notify("Discovery evidence opened", "The committed event stream is from a genuine model-driven run.");
+    const goal = discoveryGoal.value.trim();
+    if (!goal) {
+      notify("Enter a goal", "Describe the UI task in normal language before creating the discovery command.");
+      discoveryGoal.focus();
+      return;
+    }
+    const quotedGoal = `'${goal.replaceAll("'", `'\"'\"'`)}'`;
+    const command = `npm run discover -- \\\n  --goal ${quotedGoal} \\\n  --name member.read_savings_balance_v2 \\\n  --input 'memberId:string:sensitive=^\\d{3,10}$' \\\n  --value memberId=12345 \\\n  --output savingsBalance:currency:sensitive \\\n  --headed`;
+    await copyText(command);
+    notify("Live discovery command copied", "Run it from the repository after configuring a supported model provider.");
     return;
   }
   if (state.running) return;
@@ -173,6 +196,25 @@ async function runReplay() {
     runButton.disabled = false;
     runButton.textContent = "Run deterministic replay →";
   }
+}
+
+inspectDiscovery.addEventListener("click", () => {
+  showView("evidence");
+  notify("Committed discovery opened", "This evidence is from a genuine model-driven run of the default goal.");
+});
+
+async function copyText(value) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(value); return; } catch { /* fall through */ }
+  }
+  const helper = document.createElement("textarea");
+  helper.value = value;
+  helper.style.position = "fixed";
+  helper.style.opacity = "0";
+  document.body.appendChild(helper);
+  helper.select();
+  document.execCommand("copy");
+  helper.remove();
 }
 
 runButton.addEventListener("click", runReplay);
@@ -333,5 +375,5 @@ window.addEventListener("hashchange", () => {
   if (pageMeta[name] && name !== state.view) showView(name);
 });
 
-renderTimeline(replaySteps);
+setMode("discovery");
 loadStudioData();

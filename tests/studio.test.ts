@@ -22,8 +22,12 @@ test("Studio starts with pending timeline steps rather than completed checkmarks
 test("Studio design register and presentation stay aligned with committed content", async () => {
   const source = await readFile("public/studio.html", "utf8");
   assert.equal((source.match(/<article class="decision-card">/g) ?? []).length, 18);
-  assert.equal((source.match(/<article class="slide(?: active)?">/g) ?? []).length, 13);
+  assert.equal((source.match(/<article class="slide(?: active)?">/g) ?? []).length, 14);
   assert.match(source, /<b>8<\/b><span>curated replay cases<\/span>/);
+  assert.match(source, /id="discovery-goal"/);
+  assert.match(source, /Copy live discovery command/);
+  assert.match(source, /High-level system design/);
+  assert.match(source, /Thank you\./);
   assert.doesNotMatch(source, /seven curated scenarios|Never raw selectors|Every mutation is followed by a checkpoint/);
 });
 
@@ -35,7 +39,7 @@ test("Studio supports direct section links and labelled compact navigation", asy
   const html = await readFile("public/studio.html", "utf8");
   const mobileNav = html.match(/<nav class="mobile-nav"[\s\S]*?<\/nav>/)?.[0] ?? "";
   assert.equal((mobileNav.match(/aria-label=/g) ?? []).length, 7, "nav plus all six compact controls need labels");
-  for (const label of ["Overview", "Run demo", "Proof", "Human review", "Design decisions", "Presentation"]) {
+  for (const label of ["Overview", "Guided demo", "Proof", "Human review", "Design decisions", "Presentation"]) {
     assert.match(mobileNav, new RegExp(`aria-label="${label}"`));
   }
 });

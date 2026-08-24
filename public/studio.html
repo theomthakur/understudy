@@ -16,7 +16,7 @@
       <nav class="nav" aria-label="Primary navigation">
         <div class="nav-label">Workspace</div>
         <button class="nav-button active" data-view="overview"><span class="nav-icon">⌂</span><span>Overview</span></button>
-        <button class="nav-button" data-view="studio"><span class="nav-icon">▶</span><span>Run demo</span></button>
+        <button class="nav-button" data-view="studio"><span class="nav-icon">▶</span><span>Guided demo</span></button>
         <button class="nav-button" data-view="evidence"><span class="nav-icon">◇</span><span>Proof</span></button>
         <button class="nav-button" data-view="interventions"><span class="nav-icon">↔</span><span>Human review</span></button>
         <div class="nav-label" style="margin-top:14px">Design</div>
@@ -40,18 +40,19 @@
               <div class="eyebrow">Computer-use automation</div>
               <h1>The model discovers.<br><span>The capability performs.</span></h1>
               <p>Understudy gives AI agents controlled, repeatable hands inside legacy banking software. An LLM learns the workflow once; every approved replay after that is typed, policy-checked, deterministic, and auditable.</p>
-              <div class="hero-actions"><button class="button primary" data-go="studio">Run the saved capability →</button><button class="button secondary" data-go="evidence">Inspect the proof</button></div>
+              <div class="hero-actions"><button class="button primary" data-go="studio" data-mode-go="discovery">Start with the goal →</button><button class="button secondary" data-go="studio" data-mode-go="replay">Run the saved capability</button></div>
             </div>
             <div class="hero-proof"><div class="proof-card"><div class="proof-head"><span>Deterministic replay</span><span class="chip"><span class="pulse"></span> Verified</span></div><div class="proof-number">0 calls</div><div class="proof-label">Model decisions during replay</div><div class="proof-divider"></div><div class="proof-row"><span>Runtime classes</span><b>Outcome · recovery · failure</b></div><div class="proof-row"><span>Control lease</span><b>Enforced</b></div><div class="proof-row"><span>Hostile surface</span><b>Frameset</b></div></div></div>
           </div>
 
           <section class="section">
-            <div class="section-head"><div><h2 class="section-title">One learned flow, four controlled stages</h2><p class="section-copy">The model is temporary. The reviewed capability is the product.</p></div><button class="text-link" data-go="evidence">Open artifact and evidence →</button></div>
-            <div class="flow-grid">
-              <article class="flow-step"><div class="step-number">01</div><h3>Discover</h3><p>An LLM observes screenshots and visible controls, then acts against the real UI.</p></article>
-              <article class="flow-step"><div class="step-number">02</div><h3>Compile</h3><p>The successful transcript becomes a typed, parameterized, versioned capability.</p></article>
-              <article class="flow-step"><div class="step-number">03</div><h3>Review</h3><p>People inspect risk, locators, outputs, checkpoints, and known outcomes before approval.</p></article>
-              <article class="flow-step"><div class="step-number">04</div><h3>Replay</h3><p>The agent invokes a fixed execution plan with no model deciding what happens next.</p></article>
+            <div class="section-head"><div><h2 class="section-title">Follow one flow from goal to proof</h2><p class="section-copy">The model is used while learning. The approved capability is used afterward.</p></div><button class="text-link" data-go="studio" data-mode-go="discovery">Open step 1 →</button></div>
+            <div class="flow-grid reviewer-flow">
+              <article class="flow-step"><div class="step-number">01</div><h3>Enter the goal</h3><p>Write the task in normal language and declare the reusable input and output.</p></article>
+              <article class="flow-step"><div class="step-number">02</div><h3>Discover once</h3><p>The model observes the real UI and chooses only controls offered by the runtime.</p></article>
+              <article class="flow-step"><div class="step-number">03</div><h3>Review the artifact</h3><p>A person checks the saved steps, risk, checkpoints, inputs, and outputs.</p></article>
+              <article class="flow-step"><div class="step-number">04</div><h3>Replay many times</h3><p>The fixed plan runs with new inputs and no model making runtime decisions.</p></article>
+              <article class="flow-step"><div class="step-number">05</div><h3>Prove every result</h3><p>Evidence records success, known outcomes, failures, recovery, and human handoff.</p></article>
             </div>
           </section>
 
@@ -65,21 +66,22 @@
         </section>
 
         <section class="view" data-name="studio">
-          <div class="studio-intro"><div><h1>Run the demo</h1><p>Invoke the approved capability against a hostile synthetic banking UI. The browser inside the frame is the target; the controls around it show the fixed execution plan.</p></div><div class="mode-switch"><button class="mode-button active" data-mode="replay">Run saved steps</button><button class="mode-button" data-mode="discovery">How it was learned</button></div></div>
+          <div class="studio-intro"><div><h1>Guided demo</h1><p>Start with the human-language goal, then switch to deterministic replay. These are two stages of the same workflow, not two different products.</p></div><div class="mode-switch"><button class="mode-button active" data-mode="discovery">1 · Discovery input</button><button class="mode-button" data-mode="replay">2 · Deterministic replay</button></div></div>
           <div class="studio-grid">
             <div class="control-stack">
-              <div class="control-panel"><div class="panel-title" id="mode-title">Invoke saved capability</div><div class="panel-subtitle" id="mode-description">Approved path · deterministic · no model decisions</div>
-                <div class="field"><label class="control-label" id="goal-label">Capability</label><div class="goal-box" id="goal-box">member.read_savings_balance · revision 1</div></div>
-                <div class="field" id="parameter-field"><label class="control-label" for="member-id">memberId · sensitive string</label><div class="input-wrap"><span>#</span><input id="member-id" value="22871" inputmode="numeric" maxlength="10" aria-describedby="member-help"></div><div class="quick-values" id="member-help"><button class="quick-value" data-value="22871">22871 · success</button><button class="quick-value" data-value="44120">44120 · no savings</button><button class="quick-value" data-value="99999">99999 · not found</button><button class="quick-value" data-value="30099">30099 · denied</button></div></div>
-                <button class="button blue run-button" id="run-capability">Run deterministic replay →</button>
-                <div class="policy-note"><div class="check">✓</div><div><strong>Policy preflight passed.</strong><br>Origin, route, action type, and input contract are allowlisted.</div></div>
+              <div class="control-panel"><div class="panel-title" id="mode-title">Give the model a goal</div><div class="panel-subtitle" id="mode-description">Natural language in · reviewed capability out</div>
+                <div class="field"><label class="control-label" id="goal-label" for="discovery-goal">Natural-language goal</label><textarea class="goal-input" id="discovery-goal" rows="6">Look up the member with the given member ID, open their profile, and read the current balance of their SAVINGS account. Capture it as the output 'savingsBalance'.</textarea><div class="goal-box" id="capability-box" hidden>member.read_savings_balance · revision 1</div></div>
+                <div class="field" id="parameter-field" hidden><label class="control-label" for="member-id">memberId · sensitive string</label><div class="input-wrap"><span>#</span><input id="member-id" value="22871" inputmode="numeric" maxlength="10" aria-describedby="member-help"></div><div class="quick-values" id="member-help"><button class="quick-value" data-value="22871">22871 · success</button><button class="quick-value" data-value="44120">44120 · no savings</button><button class="quick-value" data-value="99999">99999 · not found</button><button class="quick-value" data-value="30099">30099 · denied</button></div></div>
+                <button class="button blue run-button" id="run-capability">Copy live discovery command →</button>
+                <button class="button ghost secondary-run-button" id="inspect-discovery">Inspect committed discovery proof</button>
+                <div class="policy-note discovery-note" id="mode-note"><div class="check">i</div><div><strong>Live discovery uses the CLI.</strong><br><span id="mode-note-detail">The model needs local credentials. This Studio copies the exact command; the proof tab shows a genuine committed run of the default goal.</span></div></div>
               </div>
               <div class="control-panel"><div class="panel-title">Resolved contract</div><div class="contract-field"><span>Input</span><code>memberId: sensitive string</code></div><div class="contract-field"><span>Output</span><code>savingsBalance: sensitive currency</code></div><div class="contract-field"><span>Risk ceiling</span><span class="badge success">Safe</span></div><div class="contract-field"><span>Artifact</span><code id="artifact-hash">sha256: validating…</code></div></div>
             </div>
 
             <div class="surface-panel"><div class="surface-toolbar"><div class="window-dots"><i></i><i></i><i></i></div><div class="surface-address" id="surface-address">/legacy/workspace?memberId=[redacted]</div><div class="surface-owner"><i></i> Automation owns session</div></div><iframe class="legacy-frame" id="legacy-frame" src="/legacy/workspace?memberId=22871" title="Synthetic hostile legacy banking application"></iframe><div class="surface-footer"><span><strong>Hostile target</strong> · frameset · nested tables · no test IDs · synthetic records</span><span>Browser-level navigation guard active</span></div></div>
 
-            <div class="panel execution-panel"><div class="panel-head"><div><div class="panel-title">Execution timeline</div><div class="panel-subtitle">Semantic locators · bounded recovery · verified checkpoints</div></div><span class="badge success">Live engine</span></div><div class="panel-body"><ol class="timeline" id="timeline"></ol><div class="output-card" id="run-output"><div class="output-label">Ready for deterministic replay</div><div class="output-value">0 model calls</div><div class="output-sub">Choose a synthetic scenario and invoke the saved capability</div></div><div class="model-zero" id="model-zero"><span>Model decisions in this run</span><b>0</b></div></div></div>
+            <div class="panel execution-panel"><div class="panel-head"><div><div class="panel-title">Execution timeline</div><div class="panel-subtitle">The current stage is shown here in order</div></div><span class="badge success">Real implementation</span></div><div class="panel-body"><ol class="timeline" id="timeline"></ol><div class="output-card" id="run-output"><div class="output-label">Committed discovery available</div><div class="output-value">4 learned steps</div><div class="output-sub">Edit the goal, copy the command, or inspect the genuine saved run</div></div><div class="model-zero" id="model-zero" hidden><span>Model decisions in this run</span><b>0</b></div></div></div>
           </div>
         </section>
 
@@ -114,6 +116,16 @@
 
         <section class="view" data-name="decisions">
           <div class="view-heading"><div><h1>Design decisions</h1><p>Every load-bearing choice in the system, what it replaced, why it won, and where it lives in the code. The brief is intentionally under-specified; this register is the record of the judgment applied.</p></div><span class="status-pill"><b>18 decisions</b> · grouped by concern</span></div>
+
+          <section class="architecture-overview panel" aria-labelledby="architecture-overview-title">
+            <div class="architecture-copy"><div class="eyebrow">High-level system design</div><h2 id="architecture-overview-title">Learn once, approve once, replay without a model</h2><p>Discovery and replay share policy, UI access, evidence, and handoff. Only discovery can call the model.</p></div>
+            <div class="architecture-lanes" role="img" aria-label="High-level architecture. A natural-language goal enters a model-driven discovery loop and recorder, producing a draft artifact for human approval. The approved capability enters a catalog. Agents invoke the catalog capability through deterministic replay, which returns a typed result. Discovery and replay share policy, a Surface interface, evidence, and human handoff while operating a hostile synthetic target.">
+              <div class="architecture-lane discovery-lane"><div class="lane-label">Discovery · once · model in the loop</div><div class="lane-flow"><span>Human-language goal<br><small>plus typed contract</small></span><i>→</i><span>Model observes<br><small>and chooses a control</small></span><i>→</i><span>Recorder hardens<br><small>the successful path</small></span><i>→</i><span>Draft artifact</span><i>→</i><span>Human approval</span></div></div>
+              <div class="architecture-lane shared-lane"><div class="lane-label">Shared runtime</div><div class="lane-flow"><span>Policy</span><span>Surface: observe · resolve · act</span><span>Evidence and redaction</span><span>Human handoff lease</span></div></div>
+              <div class="architecture-lane replay-lane"><div class="lane-label">Replay · every call · no model path</div><div class="lane-flow"><span>Agent invokes<br><small>approved capability</small></span><i>→</i><span>Validate input<br><small>and tenant overlay</small></span><i>→</i><span>Run fixed steps<br><small>act and checkpoint</small></span><i>→</i><span>Typed result<br><small>ok · outcome · failed · escalated</small></span></div></div>
+              <div class="architecture-target"><b>Hostile synthetic target</b><span>Frames · nested tables · volatile IDs · tenant labels · reproducible errors</span></div>
+            </div>
+          </section>
 
           <div class="decision-group"><div class="decision-group-head"><span class="decision-group-mark">A</span><div><h2>Architecture &amp; surfaces</h2><p>The seams that keep one implementation from painting the design into a corner.</p></div></div>
             <div class="decision-grid">
@@ -160,7 +172,7 @@
         </section>
 
         <section class="view" data-name="presentation">
-          <div class="view-heading"><div><h1>Presentation</h1><p>The whole submission in thirteen slides. Use the arrow keys or the controls below; every claim on a slide is backed by a runnable path elsewhere in this Studio.</p></div><span class="status-pill"><b id="slide-counter">1 / 13</b> · arrow keys work</span></div>
+          <div class="view-heading"><div><h1>Presentation</h1><p>The whole submission in fourteen slides. Use the arrow keys or the controls below; every claim on a slide is backed by a runnable path elsewhere in this Studio.</p></div><span class="status-pill"><b id="slide-counter">1 / 14</b> · arrow keys work</span></div>
           <div class="deck-shell">
             <div class="deck" id="deck">
 
@@ -409,7 +421,16 @@
                   <div class="slide-kicker">In one sentence</div>
                   <h2 class="slide-hero-title">Give agents hands<br><span>that a bank can audit.</span></h2>
                   <p class="slide-hero-sub">An LLM learns the workflow once, under policy. A person approves the typed contract it produced. From then on, every invocation is deterministic, checkpointed, redacted, escalatable, and provably model-free.</p>
-                  <div class="slide-stat-row"><div class="slide-stat"><b>Run demo</b><span>invoke the saved capability live</span></div><div class="slide-stat"><b>Proof</b><span>artifact, logs, screenshots</span></div><div class="slide-stat"><b>Human review</b><span>real lease transfer, live</span></div><div class="slide-stat"><b>Design decisions</b><span>all 18, with alternatives</span></div></div>
+                  <div class="slide-stat-row"><div class="slide-stat"><b>Guided demo</b><span>goal input and live saved-capability replay</span></div><div class="slide-stat"><b>Proof</b><span>artifact, logs, screenshots</span></div><div class="slide-stat"><b>Human review</b><span>real lease transfer, live</span></div><div class="slide-stat"><b>Design decisions</b><span>architecture and all 18 tradeoffs</span></div></div>
+                </div>
+              </article>
+
+              <article class="slide">
+                <div class="slide-body slide-title-layout thank-you-slide">
+                  <div class="slide-kicker">14 · Close</div>
+                  <h2 class="slide-hero-title">Thank you.</h2>
+                  <p class="slide-hero-sub">The live demo, approved artifact, design decisions, and verified evidence are available in this Studio. Questions can be answered against the implementation rather than a separate mockup.</p>
+                  <div class="slide-stat-row"><div class="slide-stat"><b>Guided demo</b><span>goal, discovery proof, and live replay</span></div><div class="slide-stat"><b>Proof</b><span>artifact, event stream, and screenshots</span></div><div class="slide-stat"><b>Human review</b><span>enforced control transfer</span></div><div class="slide-stat"><b>Design</b><span>architecture and decision register</span></div></div>
                 </div>
               </article>
 
@@ -425,7 +446,7 @@
     </main>
   </div>
 
-  <nav class="mobile-nav" aria-label="Mobile navigation"><button class="nav-button active" data-view="overview" aria-label="Overview" title="Overview"><span class="nav-icon">⌂</span><span>Overview</span></button><button class="nav-button" data-view="studio" aria-label="Run demo" title="Run demo"><span class="nav-icon">▶</span><span>Run</span></button><button class="nav-button" data-view="evidence" aria-label="Proof" title="Proof"><span class="nav-icon">◇</span><span>Proof</span></button><button class="nav-button" data-view="interventions" aria-label="Human review" title="Human review"><span class="nav-icon">↔</span><span>Human</span></button><button class="nav-button" data-view="decisions" aria-label="Design decisions" title="Design decisions"><span class="nav-icon">≡</span><span>Design</span></button><button class="nav-button" data-view="presentation" aria-label="Presentation" title="Presentation"><span class="nav-icon">▤</span><span>Slides</span></button></nav>
+  <nav class="mobile-nav" aria-label="Mobile navigation"><button class="nav-button active" data-view="overview" aria-label="Overview" title="Overview"><span class="nav-icon">⌂</span><span>Overview</span></button><button class="nav-button" data-view="studio" aria-label="Guided demo" title="Guided demo"><span class="nav-icon">▶</span><span>Demo</span></button><button class="nav-button" data-view="evidence" aria-label="Proof" title="Proof"><span class="nav-icon">◇</span><span>Proof</span></button><button class="nav-button" data-view="interventions" aria-label="Human review" title="Human review"><span class="nav-icon">↔</span><span>Human</span></button><button class="nav-button" data-view="decisions" aria-label="Design decisions" title="Design decisions"><span class="nav-icon">≡</span><span>Design</span></button><button class="nav-button" data-view="presentation" aria-label="Presentation" title="Presentation"><span class="nav-icon">▤</span><span>Slides</span></button></nav>
   <div class="toast" id="toast" role="status" aria-live="polite"><i>✓</i><div><strong>Ready</strong><span>The capability studio is available.</span></div></div>
   <script src="/studio-assets/studio.js"></script>
 </body>

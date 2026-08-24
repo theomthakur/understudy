@@ -1,128 +1,129 @@
-# Understudy — design write-up
+# Understudy: design write-up
 
 ## 1. Architecture
 
-Understudy learns a task inside software that has no API, compiles the successful run into a reusable capability, and executes that capability later without a model.
+Understudy learns a task in software that has no suitable API, turns the successful path into a capability, and runs that capability later without a model.
 
-There are two intentionally different paths:
+There are two connected paths:
 
-```
-natural-language goal
-  → observe screenshot + numbered accessibility candidates
-  → LLM proposes one candidate-bound action
-  → policy validates and the Surface acts
-  → Recorder compiles the successful run
-  → draft capability → human review → approved catalog
+```text
+DISCOVERY: natural-language goal -> model observes and proposes -> policy checks
+           -> Surface acts -> Recorder creates draft -> person approves
 
-typed capability invocation
-  → validate inputs
-  → apply tenant overlay
-  → resolve semantic target → act → verify checkpoint
-  → ok | declared business outcome | failed | escalated
-  → redacted evidence
+REPLAY:    typed invocation -> validate input and tenant -> run saved steps
+           -> check results -> ok | outcome | failed | escalated
 ```
 
-The discovery path is agentic: the model observes, reasons, and chooses the next action. It is bounded by action, step, and wall-clock budgets. A screenshot provides visual context, while numbered accessibility candidates constrain what the model may operate. The runtime ignores invented coordinates and selectors.
+Discovery is the only path with a model. On each step, the model receives a screenshot for visual context and a numbered list of controls it may use. It cannot act through a selector, coordinate, or element that the runtime did not provide. Step count, action count, and total time are limited.
 
-The production replay path is deterministic. It has no LLM client import, prompt, or model fallback. It executes the artifact’s ordered steps and classifies the observed state in a fixed order: declared business outcome, bounded recovery, checkpoint, then failure. Every curated replay records `modelInvocations: 0`.
+Replay is deliberately different. It has no model client, prompt, or model fallback. It validates the input, applies any tenant-specific labels, follows the saved steps, checks the resulting screen, and records evidence. Every committed replay reports `modelInvocations: 0`.
 
-`Surface` is the portability seam. Discovery, replay, policy, artifacts, and escalation depend on observe/resolve/act—not Playwright or the DOM. `WebSurface` implements this with accessibility roles, names, relational table cells, explicit frames, and a browser-request navigation guard. A desktop implementation would supply the same interface through Windows UI Automation or macOS Accessibility APIs.
+Both paths use the same four services:
 
-The target is a deliberately hostile synthetic banking console: frameset navigation, nested layout tables, volatile ASP.NET-style IDs, no test IDs, tenant relabeling, and reproducible failure controls. It is local because the assignment’s important states—permission denial, missing record, session expiry, delayed controls, interstitial recovery, and hard failure—must be safe and deterministic.
+- `PolicyEngine` checks hosts, routes, action types, risk, and time limits.
+- `Surface` is the single interface for observing and operating a UI.
+- `EvidenceLog` records what happened after registered sensitive values are redacted.
+- `EscalationBroker` transfers ownership of the same live session to a person.
+
+Only `WebSurface` knows that the current implementation uses Playwright. A future desktop implementation could provide the same observe, resolve, and act operations through Windows UI Automation or macOS Accessibility without changing discovery, replay, policy, or the artifact.
+
+The target is a local synthetic banking console with frames, nested tables, changing IDs, no test IDs, tenant-specific labels, and controlled error switches. It is local so exceptional states can be tested safely and repeatedly.
 
 ## 2. Artifact schema
 
-The artifact is a contract, not a macro recording. The Zod schema validates:
+The artifact is a reviewed contract, not a raw macro recording. Its runtime-validated schema contains:
 
-- identity: stable name, schema version, revision, product and supported surface;
-- typed inputs and outputs, including sensitivity and input validation;
-- ordered discriminated action steps;
-- semantic element descriptors and ordered fallbacks;
-- checkpoints for navigation and state-transitioning steps, plus a final success checkpoint;
-- declared business outcomes and bounded recovery rules;
-- per-step risk, approval state, and policy snapshot;
-- tenant overlays, discovery provenance, and an executable-contract hash.
+- name, schema version, revision, application, and supported UI type;
+- typed inputs and outputs, including validation and sensitivity;
+- ordered steps whose fields depend on the action type;
+- accessible descriptions of each target and ordered fallback descriptions;
+- checks after navigation and other state changes;
+- known business outcomes and limited recovery rules;
+- risk level, approval state, and a snapshot of the policy used;
+- tenant-specific URL or label changes;
+- discovery provenance and a hash of the executable contract.
 
-Values are either literals or typed parameter references. During recording, a typed value equal to a declared discovery input becomes a parameter reference. The recorder does not generalize values merely because they look similar.
+A recorded value becomes a reusable parameter only when it matches an input that was explicitly declared before discovery. The recorder does not guess that similar-looking values should become parameters.
 
-The real discovery run exposed a harder problem: the model read a balance cell by its literal currency text. That would pin replay to one member. The recorder now recognizes volatile value shapes, removes value-shaped fallbacks, and converts the target to the relational descriptor “the Balance column in the row containing SAVINGS.” The same artifact is tested against a different member and a second tenant.
+The genuine discovery run exposed an important issue. The model identified a savings balance by the currency value visible during that run. Saving that description would tie replay to one member. The recorder now removes value-shaped descriptions and saves the relationship instead: the Balance column in the row containing SAVINGS. Tests replay the same artifact for another member and for another tenant.
 
-Capabilities leave discovery as `draft`. Approval records reviewer identity and time and recomputes the artifact hash. An unapproved irreversible capability is refused; escalation is not a substitute for review.
+New capabilities are drafts. Approval records who reviewed the artifact and when, then recomputes the contract hash. An irreversible draft is refused before execution. Runtime escalation does not replace review.
 
 ## 3. Determinism & error handling
 
-Replay performs the same ordered steps for the same artifact. Target resolution uses a confidence ladder: relational table invariant, exact role and accessible name, scoped role/name, then explicit fallbacks. Act-path resolution polls every 250 ms only within a bounded timeout, and evidence records when a late control required multiple attempts. Known visible business outcomes bypass that polling budget.
+Replay always follows the artifact's order. It finds a target using a fixed confidence order: relational table description, exact accessible role and name, scoped role and name, then an explicitly saved fallback. The two committed capabilities do not use CSS, XPath, or coordinates. Target resolution polls only within a fixed timeout.
 
-Every navigation or state-transitioning action is followed by a checkpoint. A click succeeding is not evidence that the intended state was reached; typing and reading do not claim a page transition. After every state-changing action, the browser-level navigation guard is rechecked before the executor continues. Redirects, frames, click-triggered navigation, and popups cannot leave the allowlist unnoticed.
+After navigation or another state-changing action, replay checks that the expected screen was reached. A successful click alone is not treated as success. Typing and reading do not claim that the page changed. After each state change, the browser navigation guard is checked again.
 
-The result contract has four arms: three terminal execution results and one non-terminal/pending handoff state.
+The caller receives one of four clear result types:
 
-- `ok`: final checkpoint holds and all declared outputs exist.
-- `outcome`: the application produced a known business answer such as `MEMBER_NOT_FOUND`, `NO_SAVINGS_ACCOUNT`, `PERMISSION_DENIED`, or `SESSION_EXPIRED`.
-- `failed`: invalid input, policy denial, target drift, unreachable application, surface error, exhausted recovery, checkpoint failure, or timeout, with expected-versus-observed detail and evidence.
-- `escalated`: a human owns or abandoned a still-live intervention.
+- `ok`: the final check passed and every declared output was returned.
+- `outcome`: the application returned a known business answer, such as `MEMBER_NOT_FOUND`, `NO_SAVINGS_ACCOUNT`, `PERMISSION_DENIED`, or `SESSION_EXPIRED`.
+- `failed`: input, policy, target, application, recovery, checkpoint, or time limit failed. The result identifies the step, expected state, observed state, and evidence.
+- `escalated`: a person owns, or abandoned, a live intervention. This is a paused run, not a normal terminal result.
 
-Recoveries are explicit artifact data with attempt limits; replay never asks a model to improvise. Runtime breakage may be offered to an operator. After release, replay performs bounded deterministic re-resolution and checkpoint verification before continuing or returning the original failure with intervention linkage.
+Recovery never improvises. The artifact may declare a small recovery, such as closing a known dialog or waiting briefly for a late control, with an attempt limit. If enabled, an unresolved runtime problem can be offered to a person. When the person returns control, replay finds the target again and checks the expected state before continuing.
 
 ## 4. Heterogeneity & multi-tenant
 
-Semantic accessibility descriptors work on conventional web pages, framesets, and native desktop accessibility trees. The target proves frames and nested tables rather than only a clean SPA. Coordinates are retained only as discovery evidence, never as the primary locator.
+Accessible roles, names, frames, and table relationships work across modern pages and older web applications. The synthetic target proves frames and nested tables rather than only a clean single-page application. Coordinates are evidence from discovery, not replay locators.
 
-Tenant reuse is modeled as one base artifact plus small, reviewable overlays for entry URLs and descriptor relabeling. The same balance capability replays on Riverbend and Summitline, where “Member ID” becomes “Member Number,” without re-recording.
+Tenant reuse uses one base artifact plus small reviewed overlays. An overlay may change the entry URL or a visible label. The same balance capability runs on Riverbend and Summitline even though `Member ID` becomes `Member Number`. A label or configuration change belongs in an overlay; a materially different workflow requires a new artifact revision.
 
-At production scale, API nodes would remain stateless while browser sessions are assigned to isolated workers. Artifacts belong in a versioned database; events in an append-only log; screenshots in encrypted object storage; and interventions in a durable lease queue. Workers scale by active session count, not tenant count. Tenant overlays absorb configuration drift; materially different workflows become separate artifact revisions.
+At production scale, API nodes could remain stateless while isolated browser workers own active sessions. Artifacts would move to a versioned database, events to an append-only store, screenshots to encrypted object storage, and interventions to a durable ownership queue. Workers would scale with active sessions rather than with the number of tenants.
 
-The candidate deployment remains one container so a reviewer can run the full vertical slice. The architecture does not claim the in-memory broker or local evidence filesystem is a distributed production control plane.
+Those production components are design boundaries, not claims about this submission. The candidate project remains one local process or one local container so the full behavior is easy to run and review.
 
 ## 5. Escalation & handoff
 
-Escalation is a control transfer, not a notification. The broker state machine is:
+Handoff transfers control; it does not merely send a notification.
 
+```text
+automation -> waiting for person -> claimed by operator -> released -> automation
+                                   \-> abandoned -> automation
 ```
-automation → awaiting human → claimed by operator → released → automation
-                              ↘ abandoned → automation
-```
 
-When policy reaches an approved irreversible step—or when enabled runtime failure cannot be resolved—the broker captures the reason, step, location, screenshot, run ID, and capability identity. The Surface cedes its lease, and all automation actions throw until control returns.
+When replay reaches an approved irreversible action, or an enabled runtime failure cannot be resolved, the broker records the reason, capability, step, location, screenshot, and run ID. Automation gives up its ownership lease. Any automation action attempted while a person owns the session throws an error.
 
-Locally, a second Playwright client can attach over loopback CDP to the same persistent Chromium context, proving that cookies, frames, page state, and the prepared form are unchanged. The Studio’s hosted operator adapter also performs a deliberately small click/type/press vocabulary against that exact paused Surface. It does not create a substitute session.
+The operator must claim the intervention before acting. The local evidence test can attach a second Playwright client to the same persistent browser through loopback CDP. This proves that cookies, frames, open pages, and prepared form state were not recreated in a substitute session. The Studio exposes a deliberately small click, type, and press interface against that same paused Surface.
 
-The operator must claim before acting. Human actions are audited without storing raw typed text. The operator note is retained as audit context but is never parsed or allowed to steer execution. Release returns the lease; replay verifies the guarded step’s declared checkpoint before marking it human-completed and continuing. Cede, claim, action, release, resume, and the final result are written to one evidence stream and one run directory. Timeout or abandonment also restores the Surface lease.
+Human actions are audited without storing raw typed text. The operator's note is stored as context but is never parsed as an instruction. After release, replay checks the guarded step's expected result before marking it complete. Transfer, claim, human action, release, resume, and final result remain in one evidence stream.
 
-A production implementation needs authenticated operator identity, durable ownership with heartbeat and expiry, streaming or approved remote-session access, and recovery after worker loss. Those are explicit deployment gaps.
+A production handoff service would also need authenticated operator identity, durable ownership with heartbeat and expiry, approved remote-session streaming, and recovery after a worker failure.
 
 ## 6. Safety
 
-The model proposes; the runtime disposes. Discovery and replay share the same policy engine.
+The model proposes an action; the runtime decides whether it is allowed and performs it.
 
-- URL policy performs exact-host or explicit suffix matching plus optional path prefixes.
-- Browser request interception blocks redirects, frame navigation, click navigation, and popups before they leave the allowlist.
-- The action vocabulary is allowlisted.
-- Per-step risk is frozen into the reviewable artifact.
-- Draft irreversible artifacts fail closed; approved irreversible steps follow the configured human policy.
-- Step, run-time, recovery, resolution, and handoff waits are bounded.
-- Exactly one actor owns the Surface.
+- Discovery and replay use the same policy engine.
+- Host checks use exact hosts or explicit suffixes and may restrict paths.
+- Browser request interception blocks redirects, frame navigation, click navigation, and popups before they leave the allowed host.
+- The action vocabulary is limited.
+- Step risk is stored in the artifact.
+- Draft irreversible capabilities fail closed.
+- Steps, full runs, target resolution, recovery, and handoff waits have limits.
+- Only one actor can own the Surface.
 - Inputs are validated before browser work.
 - Sensitive inputs and outputs are registered with the redactor before evidence is written.
-- Raw HTML, credentials, model keys, raw typed operator text, and raw transcripts are not persisted.
+- Raw HTML, credentials, model keys, operator-entered text, and full model transcripts are not persisted.
 
-Sensitive currency output remains useful without leaking its value into the audit: replay records its type, a hash, and a masked proof. The local synthetic demo can display the fabricated value interactively. Step screenshots are opt-in and explicitly a demo feature; real financial deployment requires screenshot redaction, encryption, access control, and retention policy.
+A sensitive currency result is useful to the caller but is stored in evidence only as its type, a hash, and a masked proof. The local synthetic Studio may display the fabricated value. A real financial deployment would also require screenshot redaction, encryption, access control, and a retention policy.
 
-All target records are fabricated in `target-app/data.ts`. No real customer data, bank credentials, or third-party banking system is accessed.
+All records in `target-app/data.ts` are fabricated. No external bank, customer record, or credential is accessed.
 
 ## 7. Cuts
 
-Depth was chosen over breadth.
+The submission focuses on the required vertical slice. It does not add a voice interface, CRM, employee queue, decorative login, real bank connection, or a large fake dashboard. Those features would not strengthen discovery, the artifact, deterministic replay, evidence, or handoff.
 
-There is no voice interface, customer CRM, employee task queue, decorative login, real bank integration, or large fabricated dashboard. None strengthens the required discovery → artifact → replay → escalation slice, and partially working breadth would weaken the submission.
+The operator interface is intentionally small. It proves same-session ownership and verified resume; it does not claim to be a production co-browsing system. Authentication and durable ownership are stated deployment gaps.
 
-The operator UI is intentionally small. It demonstrates the enforced same-session lease and verified resume; it does not pretend to be an institution-grade co-browsing product. Authentication and role-based access are documented production boundaries, not fake local controls.
+The Capability Studio is a reviewer aid over the same implementation. It has six sections: Overview, Guided demo, Proof, Human review, Design decisions, and Presentation. The Guided demo starts with an editable human-language goal and copies the real CLI command. It does not mislabel the committed discovery evidence as a new run. Design decisions includes the high-level architecture and eighteen decisions. Presentation is a fourteen-slide walkthrough. The CLI remains the full discovery, approval, and replay path.
 
-The optional Capability Studio goes beyond the minimum operator surface only to make the existing execution, evidence, and control-transfer paths inspectable without model credentials. Its sections are Overview, Run demo, Proof, Human review, Design decisions, and Presentation; artifact details live beside evidence rather than in a separate workflow. Design decisions is a register of the eighteen load-bearing choices with the alternative each replaced and where it lives in the code, and Presentation is a thirteen-slide guided walkthrough of the same material, both static content over the same system rather than new behavior. It is a reviewer aid, not a second architecture or a claimed production employee console; the CLI remains the canonical discovery-to-replay path.
+Hosting is not included because the assignment does not require it. Docker remains an optional local run method only.
 
-Only two stretch directions are pursued:
+Two stretch directions are included:
 
-1. an agent-facing catalog that exposes approved capabilities as typed tool definitions; and
-2. cross-tenant reuse through constrained overlays.
+1. approved capabilities are exposed to agents as typed tool definitions; and
+2. one capability is reused across tenants through constrained overlays.
 
-The committed evidence is curated by a script that regenerates named cases and asserts that directory labels, result status, business codes, failures, screenshots, handoff transitions, and file paths agree. The verifier also scans for known synthetic sensitive values. This prevents documentation or curation mistakes from contradicting the executable claim.
+The evidence script rebuilds the named cases and checks that directory names, result types, business codes, failures, screenshots, handoff events, and paths agree. A second verifier scans for known synthetic sensitive values. This keeps the written claims tied to executable evidence.

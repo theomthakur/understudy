@@ -244,7 +244,12 @@ export async function startTargetServer(port = PORT): Promise<TargetServer> {
   const server = await new Promise<ReturnType<typeof app.listen>>((resolve) => {
     const instance = app.listen(port, "localhost", () => resolve(instance));
   });
-  const origin = `http://localhost:${port}`;
+  const address = server.address();
+  const boundHost = address && typeof address !== "string"
+    ? address.address.includes(":") ? `[${address.address}]` : address.address
+    : "localhost";
+  const boundPort = address && typeof address !== "string" ? address.port : port;
+  const origin = `http://${boundHost}:${boundPort}`;
   return {
     origin,
     close: () => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),

@@ -74,7 +74,7 @@ export class CapabilityCatalog {
    * irreversible capability without having to read the steps.
    */
   toToolDefinitions(): ToolDefinition[] {
-    return this.list().map((a) => {
+    return this.list().filter((a) => a.approval.state === "approved").map((a) => {
       const shape: Record<string, z.ZodTypeAny> = {};
       for (const p of a.inputs) {
         let t: z.ZodTypeAny =

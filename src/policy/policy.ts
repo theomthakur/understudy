@@ -11,9 +11,9 @@
  *                    at call sites, because relying on every call site to remember is how
  *                    secrets end up in logs.
  *
- * The limits of this model are stated honestly in REPORT.md §6. In particular the allowlist
- * is enforced at the point of action, not at the network layer, so it constrains what the
- * agent *does*, not everything a page could do on its own.
+ * The limits of this model are stated honestly in REPORT.md §6. The policy engine checks
+ * explicit actions, while WebSurface also intercepts document navigation. It does not claim
+ * to be a general outbound-network firewall for every request a page can initiate.
  */
 
 import type { Risk } from "../domain/artifact.js";

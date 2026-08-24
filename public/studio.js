@@ -67,7 +67,7 @@ const discoverySteps = [
   ["Compile capability", "Recorder removes volatile data and adds typed contracts"],
 ];
 
-function renderTimeline(steps, completed = steps.length, outcomeIndex = -1, trace = []) {
+function renderTimeline(steps, completed = -1, outcomeIndex = -1, trace = []) {
   timeline.innerHTML = steps.map(([name, description], index) => {
     const done = index < completed;
     const stateClass = done ? "complete" : index === completed ? "running" : "";

@@ -336,7 +336,10 @@ export const CapabilityArtifactSchema = z.object({
 export type CapabilityArtifact = z.infer<typeof CapabilityArtifactSchema>;
 
 export function parseArtifact(raw: unknown): CapabilityArtifact {
-  return CapabilityArtifactSchema.parse(raw);
+  const parsed = CapabilityArtifactSchema.parse(raw);
+  const integrityError = artifactIntegrityError(parsed);
+  if (integrityError) throw new Error(integrityError);
+  return parsed;
 }
 
 /** Hash the parsed executable contract, excluding the hash field itself. */
@@ -344,4 +347,15 @@ export function computeArtifactHash(raw: CapabilityArtifact): string {
   const parsed = CapabilityArtifactSchema.parse(raw);
   delete parsed.artifactHash;
   return createHash("sha256").update(JSON.stringify(parsed)).digest("hex");
+}
+
+/** Approved artifacts must still be the exact executable contract a person reviewed. */
+export function artifactIntegrityError(artifact: CapabilityArtifact): string | undefined {
+  if (artifact.approval.state !== "approved") return undefined;
+  if (!artifact.artifactHash) return `Approved artifact ${artifact.name}@${artifact.revision} has no artifactHash`;
+  const expected = computeArtifactHash(artifact);
+  if (artifact.artifactHash !== expected) {
+    return `Approved artifact ${artifact.name}@${artifact.revision} failed its artifactHash check`;
+  }
+  return undefined;
 }

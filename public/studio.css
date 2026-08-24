@@ -480,7 +480,7 @@ a { color: inherit; }
 
 .mobile-nav { display: none; }
 
-@media (max-width: 1220px) {
+@media (max-width: 1480px) {
   .studio-grid { grid-template-columns: 280px minmax(480px,1fr); }
   .execution-panel { grid-column: 1 / -1; }
   .execution-panel .panel-body { display: grid; grid-template-columns: minmax(0,1fr) 260px; gap: 18px; }

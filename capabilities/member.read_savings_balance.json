@@ -282,5 +282,6 @@
     "discoveryRunId": "discover-20260813T060730-kdh7w",
     "stepCount": 4,
     "transcriptRef": "evidence/examples/01-discovery-live/events.jsonl"
-  }
+  },
+  "artifactHash": "7a04a18ceb908a8821ac73a9bd6854fa60e4193162a09eec6d14c6558fc81862"
 }

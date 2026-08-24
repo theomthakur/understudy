@@ -10,11 +10,15 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { record } from "../src/discovery/recorder.js";
 import type { DiscoveryResult } from "../src/discovery/agent.js";
 import { PolicyEngine, DEFAULT_POLICY } from "../src/policy/policy.js";
 import { Redactor, maskPartial } from "../src/policy/redact.js";
 import { CapabilityCatalog } from "../src/catalog/catalog.js";
+import { computeArtifactHash, parseArtifact } from "../src/domain/artifact.js";
 import { CU_BUSINESS_OUTCOMES } from "../src/knowledge.js";
 
 const BASE = "http://localhost:4471";
@@ -207,6 +211,21 @@ test("recorded artifacts start as drafts", () => {
   assert.equal(recordFixture().approval.state, "draft");
 });
 
+test("approved artifact hashes bind approval to the reviewed executable contract", () => {
+  const approved = recordFixture();
+  approved.approval = { state: "approved", reviewedBy: "test", reviewedAt: new Date().toISOString() };
+  approved.artifactHash = computeArtifactHash(approved);
+  assert.doesNotThrow(() => parseArtifact(approved));
+
+  const tampered = structuredClone(approved);
+  tampered.title = "Changed after approval";
+  assert.throws(() => parseArtifact(tampered), /failed its artifactHash check/);
+
+  const unhashed = structuredClone(approved);
+  delete unhashed.artifactHash;
+  assert.throws(() => parseArtifact(unhashed), /has no artifactHash/);
+});
+
 test("recorder keeps the discovery rationale for human review", () => {
   const a = recordFixture();
   const click = a.steps.find((s) => s.action === "click")!;
@@ -286,5 +305,26 @@ test("catalog renders artifacts as agent-invocable tool definitions", () => {
     assert.ok(t.name.length > 0);
     assert.ok(t.input_schema, "an agent needs a JSON Schema to call this");
     assert.ok(["safe", "elevated", "irreversible"].includes(t.x_understudy.maxRisk));
+  }
+});
+
+test("catalog exposes approved capabilities and withholds drafts", () => {
+  const dir = mkdtempSync(join(tmpdir(), "understudy-catalog-"));
+  try {
+    const draft = recordFixture();
+    draft.name = "catalog.draft_capability";
+    draft.artifactHash = computeArtifactHash(draft);
+
+    const approved = structuredClone(draft);
+    approved.name = "catalog.approved_capability";
+    approved.approval = { state: "approved", reviewedBy: "test", reviewedAt: new Date().toISOString() };
+    approved.artifactHash = computeArtifactHash(approved);
+
+    writeFileSync(join(dir, "draft.json"), JSON.stringify(draft));
+    writeFileSync(join(dir, "approved.json"), JSON.stringify(approved));
+    const names = new CapabilityCatalog(dir).load().toToolDefinitions().map((tool) => tool.name);
+    assert.deepEqual(names, ["catalog.approved_capability"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

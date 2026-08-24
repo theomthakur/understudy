@@ -3,7 +3,7 @@ import http from "node:http";
 import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { computeArtifactHash, parseArtifact, type CapabilityArtifact } from "../domain/artifact.js";
+import { parseArtifact, type CapabilityArtifact } from "../domain/artifact.js";
 import { replay } from "../replay/replay.js";
 import { WebSurface } from "../surface/web-surface.js";
 import { PolicyEngine, DEFAULT_POLICY } from "../policy/policy.js";
@@ -16,7 +16,6 @@ import type { HumanAction } from "../surface/surface.js";
 const STUDIO_PORT = Number(process.env.PORT ?? process.env.STUDIO_PORT ?? 4317);
 const TARGET_PORT = Number(process.env.TARGET_PORT ?? 4471);
 const TARGET_ORIGIN = `http://localhost:${TARGET_PORT}`;
-const TARGET_PROXY_ORIGIN = `http://127.0.0.1:${TARGET_PORT}`;
 const PUBLIC_DEMO = process.env.UNDERSTUDY_PUBLIC_DEMO === "1";
 
 interface LiveIntervention {
@@ -29,9 +28,7 @@ interface LiveIntervention {
 let liveIntervention: LiveIntervention | undefined;
 
 async function loadArtifact(name = "member.read_savings_balance"): Promise<CapabilityArtifact> {
-  const artifact = parseArtifact(JSON.parse(await readFile(resolve(`capabilities/${name}.json`), "utf8")));
-  artifact.artifactHash ??= computeArtifactHash(artifact);
-  return artifact;
+  return parseArtifact(JSON.parse(await readFile(resolve(`capabilities/${name}.json`), "utf8")));
 }
 
 function adaptOrigin(artifact: CapabilityArtifact): CapabilityArtifact {
@@ -53,11 +50,14 @@ export interface StudioServer {
 
 export async function startStudioServer(port = STUDIO_PORT, startTarget = true): Promise<StudioServer> {
   const target: TargetServer | undefined = startTarget ? await startTargetServer(TARGET_PORT) : undefined;
+  // Use the listener's actual loopback address. `localhost` may bind ::1 while a later
+  // client lookup chooses 127.0.0.1, which otherwise leaves the embedded surface blank.
+  const targetProxyOrigin = target?.origin ?? TARGET_ORIGIN;
   const app = express();
   app.use(express.json({ limit: "64kb" }));
   app.use("/studio-assets", express.static(resolve("public"), { etag: false, maxAge: 0 }));
   app.use("/evidence", express.static(resolve("evidence"), { etag: false, maxAge: 0 }));
-  app.use("/legacy", proxyLegacyTarget);
+  app.use("/legacy", (req, res) => proxyLegacyTarget(req, res, targetProxyOrigin));
 
   app.get("/", (_req, res) => res.redirect(302, "/studio"));
   app.get("/studio", (_req, res) => res.sendFile(resolve("public/studio.html")));
@@ -129,7 +129,6 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
     const log = new EvidenceLog(newRunId("replay"), new Redactor(), "evidence/runs");
     const broker = new EscalationBroker(surface, log, `http://localhost:${port}/studio`);
     const artifact = adaptOrigin(await loadArtifact("member.open_sub_account"));
-    artifact.approval = { state: "approved", reviewedBy: "candidate-demo", reviewedAt: new Date().toISOString() };
     const replayPromise = replay(artifact, { memberId: "12345" }, {
       surface,
       policy: new PolicyEngine({ ...DEFAULT_POLICY, allowedHosts: ["localhost"] }),
@@ -193,6 +192,8 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
   const server = await new Promise<ReturnType<typeof app.listen>>((resolveServer) => {
     const instance = app.listen(port, process.env.HOST ?? "127.0.0.1", () => resolveServer(instance));
   });
+  const address = server.address();
+  if (address && typeof address !== "string") port = address.port;
 
   return {
     origin: `http://127.0.0.1:${port}`,
@@ -210,9 +211,9 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
 }
 
 /** One public port, while Playwright still exercises the separately started legacy origin. */
-function proxyLegacyTarget(req: express.Request, res: express.Response): void {
+function proxyLegacyTarget(req: express.Request, res: express.Response, targetOrigin: string): void {
   const targetPath = req.originalUrl.replace(/^\/legacy(?=\/|\?|$)/, "") || "/";
-  const upstream = http.request(`${TARGET_PROXY_ORIGIN}${targetPath}`, {
+  const upstream = http.request(`${targetOrigin}${targetPath}`, {
     method: req.method,
     headers: { ...req.headers, host: `localhost:${TARGET_PORT}` },
   }, (upstreamResponse) => {

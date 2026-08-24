@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { parseArtifact, type CapabilityArtifact } from "../src/domain/artifact.js";
+import { computeArtifactHash, parseArtifact, type CapabilityArtifact } from "../src/domain/artifact.js";
 import type { ReplayResult } from "../src/domain/result.js";
 import { replay } from "../src/replay/replay.js";
 import { WebSurface } from "../src/surface/web-surface.js";
@@ -39,6 +39,7 @@ async function runCase(
 ): Promise<{ result: ReplayResult; screenshotPaths: string[] }> {
   const artifact = await load("member.read_savings_balance");
   mutate?.(artifact);
+  if (mutate) artifact.artifactHash = computeArtifactHash(artifact);
   const surface = new WebSurface({ headless: true });
   await surface.start();
   try {

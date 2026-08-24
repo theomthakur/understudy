@@ -28,6 +28,7 @@ import type {
   Step,
   Value,
 } from "../domain/artifact.js";
+import { artifactIntegrityError } from "../domain/artifact.js";
 import type {
   EscalatedResult,
   FailedResult,
@@ -109,6 +110,15 @@ export async function replay(
     durationMs: Date.now() - started,
   });
 
+  /* ---------------------------------------------------------- artifact integrity */
+  const integrityError = artifactIntegrityError(artifact);
+  if (integrityError) {
+    log.error("replay.invalid_artifact", { detail: integrityError });
+    const r = fail("policy_denied", null, "the exact approved artifact contract", "artifactHash mismatch", integrityError);
+    log.saveResult(r);
+    return r;
+  }
+
   /* ---------------------------------------------------------- input validation */
   // Done before any browser work: a contract violation should cost nothing.
   const validation = validateInputs(artifact, inputs);
@@ -124,10 +134,11 @@ export async function replay(
     ? artifact.tenantOverlays.find((o) => o.tenantId === opts.tenantId)
     : undefined;
   if (opts.tenantId && !overlay) {
-    log.warn("replay.no_overlay", {
-      tenantId: opts.tenantId,
-      detail: "running the base flow unmodified",
-    });
+    const message = `No tenant overlay is declared for "${opts.tenantId}"`;
+    log.error("replay.unknown_tenant", { tenantId: opts.tenantId });
+    const r = fail("invalid_input", null, "a declared tenant overlay", opts.tenantId, message);
+    log.saveResult(r);
+    return r;
   }
 
   const approved = artifact.approval.state === "approved";

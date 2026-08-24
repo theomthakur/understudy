@@ -283,5 +283,6 @@
     "model": "none \u2014 authored by hand so replay can be demonstrated without credentials",
     "discoveryRunId": "hand-authored-pending-discovery",
     "stepCount": 6
-  }
+  },
+  "artifactHash": "6e3d1915608104681dcf343f306d77a79fe636c0d4367ab0c4a271cf72bf77aa"
 }

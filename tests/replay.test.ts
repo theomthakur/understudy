@@ -18,7 +18,7 @@ import { replay } from "../src/replay/replay.js";
 import { EscalationBroker } from "../src/escalation/escalation.js";
 import { EvidenceLog, newRunId } from "../src/evidence/logger.js";
 import { Redactor } from "../src/policy/redact.js";
-import { CapabilityArtifactSchema, type CapabilityArtifact } from "../src/domain/artifact.js";
+import { CapabilityArtifactSchema, computeArtifactHash, type CapabilityArtifact } from "../src/domain/artifact.js";
 import { CU_BUSINESS_OUTCOMES, CU_RECOVERIES } from "../src/knowledge.js";
 
 const PORT = Number(process.env.TARGET_PORT ?? 4471);
@@ -29,6 +29,11 @@ const CONTROL_BASE = BASE;
 const EVIDENCE_ROOT = "evidence/test-runs";
 
 let surface: WebSurface;
+
+function approveArtifact(artifact: CapabilityArtifact): void {
+  artifact.approval = { state: "approved", reviewedBy: "test", reviewedAt: new Date().toISOString() };
+  artifact.artifactHash = computeArtifactHash(artifact);
+}
 
 before(async () => {
   surface = new WebSurface({ headless: true });
@@ -236,7 +241,7 @@ async function waitForIntervention(broker: EscalationBroker) {
 }
 
 function failureEscalationArtifact(): CapabilityArtifact {
-  return CapabilityArtifactSchema.parse({
+  const artifact = CapabilityArtifactSchema.parse({
     schemaVersion: "1.0.0",
     name: "member.open_sub_account_from_search",
     revision: 1,
@@ -259,6 +264,8 @@ function failureEscalationArtifact(): CapabilityArtifact {
     approval: { state: "approved", reviewedBy: "test" },
     provenance: { recordedAt: new Date().toISOString(), goal: "test", discoveryRunId: "test", stepCount: 2 },
   });
+  approveArtifact(artifact);
+  return artifact;
 }
 
 test("happy path: replays deterministically and returns a typed output", async () => {
@@ -344,6 +351,17 @@ test("INVALID INPUT: a missing required parameter is caught", async () => {
   assert.match(r.message, /memberId/);
 });
 
+test("INTEGRITY: replay refuses an approved artifact changed after review", async () => {
+  const artifact = readBalanceArtifact();
+  approveArtifact(artifact);
+  artifact.title = "Tampered after approval";
+  const r = await replay(artifact, { memberId: "12345" }, deps());
+  assert.equal(r.status, "failed");
+  if (r.status !== "failed") return;
+  assert.equal(r.failure, "policy_denied");
+  assert.match(r.message, /artifactHash check/);
+});
+
 test("DETERMINISM: act-path resolution polls through a transiently late control", async () => {
   await fetch(`${CONTROL_BASE}/__fault?kind=slow&times=1`);
   const artifact = readBalanceArtifact();
@@ -401,8 +419,8 @@ test("POLICY: navigation off the allowlist is denied", async () => {
 
 test("POLICY + ESCALATION: a human acts, releases, and replay resumes to ok", async () => {
   const artifact = readBalanceArtifact();
-  artifact.approval = { state: "approved", reviewedBy: "test" };
   addSubAccountSteps(artifact);
+  approveArtifact(artifact);
 
   const log = new EvidenceLog(newRunId("replay"), new Redactor(), EVIDENCE_ROOT);
   const broker = new EscalationBroker(surface, log, "http://localhost:4472");
@@ -448,8 +466,8 @@ test("POLICY + ESCALATION: a human acts, releases, and replay resumes to ok", as
 
 test("ESCALATION: releasing without the human action fails its checkpoint", async () => {
   const artifact = readBalanceArtifact();
-  artifact.approval = { state: "approved", reviewedBy: "test" };
   addSubAccountSteps(artifact, 300);
+  approveArtifact(artifact);
 
   const log = new EvidenceLog(newRunId("replay"), new Redactor(), EVIDENCE_ROOT);
   const broker = new EscalationBroker(surface, log, "http://localhost:4472");
@@ -466,8 +484,8 @@ test("ESCALATION: releasing without the human action fails its checkpoint", asyn
 
 test("ESCALATION: a bounded timeout abandons and returns the surface lease", async () => {
   const artifact = readBalanceArtifact();
-  artifact.approval = { state: "approved", reviewedBy: "test" };
   addSubAccountSteps(artifact, 300);
+  approveArtifact(artifact);
 
   const log = new EvidenceLog(newRunId("replay"), new Redactor(), EVIDENCE_ROOT);
   const broker = new EscalationBroker(surface, log, "http://localhost:4472");
@@ -563,4 +581,13 @@ test("TENANT REUSE: the same artifact runs against a second tenant of the same p
   ];
   const r = await replay(artifact, { memberId: "12345" }, { ...deps(), tenantId: "summitline" });
   assert.equal(r.status, "ok", `expected the base flow to work on tenant 2, got ${r.status}`);
+});
+
+test("TENANT SAFETY: an unknown tenant fails closed instead of running the base flow", async () => {
+  const r = await replay(readBalanceArtifact(), { memberId: "12345" }, { ...deps(), tenantId: "summitlin" });
+  assert.equal(r.status, "failed");
+  if (r.status !== "failed") return;
+  assert.equal(r.failure, "invalid_input");
+  assert.match(r.message, /No tenant overlay is declared/);
+  assert.equal(r.trace.length, 0);
 });

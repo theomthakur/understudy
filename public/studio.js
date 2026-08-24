@@ -23,6 +23,8 @@ const pageMeta = {
   studio: ["Working Demo", "Deterministic replay"],
   evidence: ["Artifact & Evidence", "Proof"],
   interventions: ["Control Transfer", "Human review"],
+  decisions: ["Design Rationale", "Design decisions"],
+  presentation: ["Guided Walkthrough", "Presentation"],
 };
 
 function showView(name) {
@@ -63,7 +65,7 @@ const replaySteps = [
 const discoverySteps = [
   ["Observe live surface", "Screenshot and numbered accessibility candidates captured"],
   ["Model chooses input", "Structured decision can reference only a listed candidate"],
-  ["Model submits search", "The runtime—not the model—operates the live control"],
+  ["Model submits search", "The runtime, not the model, operates the live control"],
   ["Compile capability", "Recorder removes volatile data and adds typed contracts"],
 ];
 
@@ -286,6 +288,41 @@ $("#dismiss-intervention").addEventListener("click", () => {
   handoffEmpty.style.display = "grid";
   ownerLabel.textContent = "Automation owns session";
 });
+
+const slides = [...document.querySelectorAll(".slide")];
+const slideDots = $("#deck-dots");
+const slideCounter = $("#slide-counter");
+let slideIndex = 0;
+
+slides.forEach((_, index) => {
+  const dot = document.createElement("button");
+  dot.className = "deck-dot";
+  dot.setAttribute("aria-label", `Slide ${index + 1}`);
+  dot.addEventListener("click", () => showSlide(index));
+  slideDots.appendChild(dot);
+});
+const dots = [...slideDots.children];
+
+function showSlide(index) {
+  slideIndex = Math.max(0, Math.min(slides.length - 1, index));
+  slides.forEach((slide, i) => slide.classList.toggle("active", i === slideIndex));
+  dots.forEach((dot, i) => dot.classList.toggle("active", i === slideIndex));
+  slideCounter.textContent = `${slideIndex + 1} / ${slides.length}`;
+  $("#slide-prev").disabled = slideIndex === 0;
+  $("#slide-next").disabled = slideIndex === slides.length - 1;
+}
+
+$("#slide-prev").addEventListener("click", () => showSlide(slideIndex - 1));
+$("#slide-next").addEventListener("click", () => showSlide(slideIndex + 1));
+document.addEventListener("keydown", (event) => {
+  if (state.view !== "presentation") return;
+  if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
+  if (event.key === "ArrowRight" || event.key === "PageDown") { event.preventDefault(); showSlide(slideIndex + 1); }
+  if (event.key === "ArrowLeft" || event.key === "PageUp") { event.preventDefault(); showSlide(slideIndex - 1); }
+  if (event.key === "Home") { event.preventDefault(); showSlide(0); }
+  if (event.key === "End") { event.preventDefault(); showSlide(slides.length - 1); }
+});
+showSlide(0);
 
 renderTimeline(replaySteps);
 loadStudioData();

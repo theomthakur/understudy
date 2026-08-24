@@ -118,7 +118,7 @@ There is no voice interface, customer CRM, employee task queue, decorative login
 
 The operator UI is intentionally small. It demonstrates the enforced same-session lease and verified resume; it does not pretend to be an institution-grade co-browsing product. Authentication and role-based access are documented production boundaries, not fake local controls.
 
-The optional Capability Studio goes beyond the minimum operator surface only to make the existing execution, evidence, and control-transfer paths inspectable without model credentials. Its four sections are Overview, Run demo, Proof, and Human review; artifact details live beside evidence rather than in a separate workflow. It is a reviewer aid, not a second architecture or a claimed production employee console; the CLI remains the canonical discovery-to-replay path.
+The optional Capability Studio goes beyond the minimum operator surface only to make the existing execution, evidence, and control-transfer paths inspectable without model credentials. Its sections are Overview, Run demo, Proof, Human review, Design decisions, and Presentation; artifact details live beside evidence rather than in a separate workflow. Design decisions is a register of the eighteen load-bearing choices with the alternative each replaced and where it lives in the code, and Presentation is a thirteen-slide guided walkthrough of the same material, both static content over the same system rather than new behavior. It is a reviewer aid, not a second architecture or a claimed production employee console; the CLI remains the canonical discovery-to-replay path.
 
 Only two stretch directions are pursued:
 

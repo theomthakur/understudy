@@ -1,5 +1,5 @@
-{"ts":"2026-08-23T18:16:08.864Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260823T181608-7x4sj","attended":false,"modelInvocations":0}
-{"ts":"2026-08-23T18:16:08.864Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
-{"ts":"2026-08-23T18:16:09.117Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
-{"ts":"2026-08-23T18:16:09.155Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
-{"ts":"2026-08-23T18:16:19.467Z","level":"info","event":"replay.business_outcome","code":"PERMISSION_DENIED","description":"The record is restricted and this operator may not view it."}
+{"ts":"2026-08-24T20:33:26.993Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260824T203326-n8yfd","attended":false,"modelInvocations":0}
+{"ts":"2026-08-24T20:33:26.994Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
+{"ts":"2026-08-24T20:33:27.245Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
+{"ts":"2026-08-24T20:33:27.292Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
+{"ts":"2026-08-24T20:33:37.606Z","level":"info","event":"replay.business_outcome","code":"PERMISSION_DENIED","description":"The record is restricted and this operator may not view it."}

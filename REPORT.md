@@ -38,7 +38,7 @@ The artifact is a contract, not a macro recording. The Zod schema validates:
 - typed inputs and outputs, including sensitivity and input validation;
 - ordered discriminated action steps;
 - semantic element descriptors and ordered fallbacks;
-- a checkpoint for every state-changing step and a final success checkpoint;
+- checkpoints for navigation and state-transitioning steps, plus a final success checkpoint;
 - declared business outcomes and bounded recovery rules;
 - per-step risk, approval state, and policy snapshot;
 - tenant overlays, discovery provenance, and an executable-contract hash.
@@ -53,7 +53,7 @@ Capabilities leave discovery as `draft`. Approval records reviewer identity and 
 
 Replay performs the same ordered steps for the same artifact. Target resolution uses a confidence ladder: relational table invariant, exact role and accessible name, scoped role/name, then explicit fallbacks. Act-path resolution polls every 250 ms only within a bounded timeout, and evidence records when a late control required multiple attempts. Known visible business outcomes bypass that polling budget.
 
-Each mutation is followed by a checkpoint. A click succeeding is not evidence that the intended state was reached. After every state-changing action, the browser-level navigation guard is rechecked before the executor continues. Redirects, frames, click-triggered navigation, and popups cannot leave the allowlist unnoticed.
+Every navigation or state-transitioning action is followed by a checkpoint. A click succeeding is not evidence that the intended state was reached; typing and reading do not claim a page transition. After every state-changing action, the browser-level navigation guard is rechecked before the executor continues. Redirects, frames, click-triggered navigation, and popups cannot leave the allowlist unnoticed.
 
 The result contract has four arms: three terminal execution results and one non-terminal/pending handoff state.
 
@@ -62,7 +62,7 @@ The result contract has four arms: three terminal execution results and one non-
 - `failed`: invalid input, policy denial, target drift, unreachable application, surface error, exhausted recovery, checkpoint failure, or timeout, with expected-versus-observed detail and evidence.
 - `escalated`: a human owns or abandoned a still-live intervention.
 
-Recoveries are explicit artifact data with attempt limits; replay never asks a model to improvise. Runtime breakage may be offered to an operator. After release, replay makes exactly one deterministic re-resolution or checkpoint verification before continuing or returning the original failure with intervention linkage.
+Recoveries are explicit artifact data with attempt limits; replay never asks a model to improvise. Runtime breakage may be offered to an operator. After release, replay performs bounded deterministic re-resolution and checkpoint verification before continuing or returning the original failure with intervention linkage.
 
 ## 4. Heterogeneity & multi-tenant
 

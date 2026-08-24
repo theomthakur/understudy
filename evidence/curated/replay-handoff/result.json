@@ -8,56 +8,56 @@
       "stepId": "s0",
       "action": "navigate",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:26.525Z",
-      "durationMs": 243,
+      "startedAt": "2026-08-24T20:33:53.041Z",
+      "durationMs": 242,
       "status": "ok"
     },
     {
       "stepId": "s1",
       "action": "type",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:26.781Z",
-      "durationMs": 10,
+      "startedAt": "2026-08-24T20:33:53.307Z",
+      "durationMs": 14,
       "status": "ok"
     },
     {
       "stepId": "s2",
       "action": "click",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:26.813Z",
-      "durationMs": 277,
+      "startedAt": "2026-08-24T20:33:53.347Z",
+      "durationMs": 269,
       "status": "ok"
     },
     {
       "stepId": "s4",
       "action": "click",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:27.109Z",
-      "durationMs": 2771,
+      "startedAt": "2026-08-24T20:33:53.638Z",
+      "durationMs": 2777,
       "status": "ok"
     },
     {
       "stepId": "s5",
       "action": "type",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:29.904Z",
-      "durationMs": 8,
+      "startedAt": "2026-08-24T20:33:56.433Z",
+      "durationMs": 11,
       "status": "ok"
     },
     {
       "stepId": "s6",
       "action": "click",
       "risk": "irreversible",
-      "startedAt": "2026-08-23T18:16:29.936Z",
-      "durationMs": 5362,
+      "startedAt": "2026-08-24T20:33:56.465Z",
+      "durationMs": 5383,
       "status": "human",
-      "interventionId": "60d4fe89"
+      "interventionId": "02e77b82"
     }
   ],
   "evidence": {
-    "runId": "replay-20260823T181626-c46kd",
+    "runId": "replay-20260824T203353-zpgzi",
     "logPath": "evidence/curated/replay-handoff/events.jsonl",
     "screenshotPath": "evidence/curated/replay-handoff/escalation.png"
   },
-  "durationMs": 11313
+  "durationMs": 11363
 }

@@ -98,12 +98,18 @@ app.get("/policy-probe", (_req, res) => {
 app.get("/", (req, res) => {
   const t = tenantOf(req);
   const fault = activeFault === "slow" ? takeFault() : "none";
-  res.send(V.searchPage(t.label, req.query.error ? String(req.query.error) : undefined, fault === "slow" ? 1800 : 0));
+  res.send(V.searchPage(
+    t.label,
+    t.key,
+    t.searchLabel,
+    req.query.error ? String(req.query.error) : undefined,
+    fault === "slow" ? 1800 : 0
+  ));
 });
 
 app.get("/frame/header", (req, res) => {
   const t = tenantOf(req);
-  res.send(V.headerFrame(t.label, String(req.query.memberId ?? "")));
+  res.send(V.headerFrame(t.label, t.key, String(req.query.memberId ?? "")));
 });
 
 /** Search submit. Validation and not-found are *business outcomes*, not crashes. */
@@ -112,24 +118,24 @@ app.get("/members/lookup", async (req, res) => {
   const fault = takeFault();
   await maybeSlow(fault);
 
-  if (fault === "session") return res.send(V.sessionExpired(t.label));
+  if (fault === "session") return res.send(V.sessionExpired(t.label, t.key));
   if (fault === "apperror") return res.status(500).send(V.appError(t.label));
 
   const raw = String(req.query.memberId ?? "").trim();
 
   if (raw === "") {
-    return res.send(V.searchPage(t.label, "Member ID is required."));
+    return res.send(V.searchPage(t.label, t.key, t.searchLabel, `${t.searchLabel} is required.`));
   }
   if (!/^\d+$/.test(raw)) {
-    return res.send(V.searchPage(t.label, "Member ID must be numeric."));
+    return res.send(V.searchPage(t.label, t.key, t.searchLabel, `${t.searchLabel} must be numeric.`));
   }
 
   const member = findMember(raw);
   if (!member) {
-    return res.send(V.searchPage(t.label, `No member found with ID ${raw}.`));
+    return res.send(V.searchPage(t.label, t.key, t.searchLabel, `No member found with ID ${raw}.`));
   }
   if (member.restricted) {
-    return res.status(403).send(V.permissionDenied(t.label, raw));
+    return res.status(403).send(V.permissionDenied(t.label, t.key, raw));
   }
 
   res.redirect(`/workspace?memberId=${encodeURIComponent(raw)}&tenant=${encodeURIComponent(t.key)}`);
@@ -137,24 +143,25 @@ app.get("/members/lookup", async (req, res) => {
 
 app.get("/workspace", (req, res) => {
   const t = tenantOf(req);
-  res.send(V.workspaceFrameset(t.label, String(req.query.memberId ?? "")));
+  res.send(V.workspaceFrameset(t.label, t.key, String(req.query.memberId ?? "")));
 });
 
 app.get("/frame/member", async (req, res) => {
   const t = tenantOf(req);
   const fault = takeFault();
   await maybeSlow(fault);
-  if (fault === "session") return res.send(V.sessionExpired(t.label));
+  if (fault === "session") return res.send(V.sessionExpired(t.label, t.key));
   if (fault === "apperror") return res.status(500).send(V.appError(t.label));
 
   const id = String(req.query.memberId ?? "");
   const member = findMember(id);
-  if (!member) return res.send(V.searchPage(t.label, `No member found with ID ${id}.`));
-  if (member.restricted) return res.status(403).send(V.permissionDenied(t.label, id));
+  if (!member) return res.send(V.searchPage(t.label, t.key, t.searchLabel, `No member found with ID ${id}.`));
+  if (member.restricted) return res.status(403).send(V.permissionDenied(t.label, t.key, id));
 
   res.send(
     V.memberDetailFrame({
       tenant: t.label,
+      tenantKey: t.key,
       memberId: member.memberId,
       fullName: `${member.firstName} ${member.lastName}`,
       branch: member.branch,
@@ -178,7 +185,7 @@ app.get("/accounts/:acct", async (req, res) => {
   const t = tenantOf(req);
   const fault = takeFault();
   await maybeSlow(fault);
-  if (fault === "session") return res.send(V.sessionExpired(t.label));
+  if (fault === "session") return res.send(V.sessionExpired(t.label, t.key));
 
   const memberId = String(req.query.memberId ?? "");
   const member = findMember(memberId);
@@ -188,6 +195,7 @@ app.get("/accounts/:acct", async (req, res) => {
   res.send(
     V.accountDetailFrame({
       tenant: t.label,
+      tenantKey: t.key,
       memberId: member.memberId,
       accountNumber: acct.accountNumber,
       type: acct.type,
@@ -201,20 +209,20 @@ app.get("/accounts/:acct", async (req, res) => {
 /** Irreversible-action path: always goes through an explicit confirmation screen. */
 app.post("/members/:id/subaccount", (req, res) => {
   const t = tenantOf(req);
-  res.send(V.confirmSubAccount(t.label, req.params.id));
+  res.send(V.confirmSubAccount(t.label, t.key, req.params.id));
 });
 
 app.post("/members/:id/subaccount/confirm", (req, res) => {
   const t = tenantOf(req);
   const nickname = String(req.body?.nickname ?? "").trim();
   if (nickname === "") {
-    return res.send(V.confirmSubAccount(t.label, req.params.id).replace(
+    return res.send(V.confirmSubAccount(t.label, t.key, req.params.id).replace(
       '<div class="warn"',
       '<div class="err" role="alert">Nickname is required.</div><div class="warn"'
     ));
   }
   const member = findMember(req.params.id);
-  if (!member) return res.send(V.searchPage(t.label, `No member found with ID ${req.params.id}.`));
+  if (!member) return res.send(V.searchPage(t.label, t.key, t.searchLabel, `No member found with ID ${req.params.id}.`));
 
   res.send(
     V.chrome({
@@ -227,7 +235,7 @@ app.post("/members/:id/subaccount/confirm", (req, res) => {
           <tr><th>New Account</th><td id="ctl00_MainPlaceHolder_lblNewAccount">SV-${member.memberId}-02</td></tr>
           <tr><th>Status</th><td>OPEN</td></tr>
         </table>
-        <p><a href="/frame/member?memberId=${encodeURIComponent(member.memberId)}">Back to Member Profile</a></p>
+        <p><a href="/frame/member?memberId=${encodeURIComponent(member.memberId)}&tenant=${encodeURIComponent(t.key)}">Back to Member Profile</a></p>
       </div>`,
     })
   );

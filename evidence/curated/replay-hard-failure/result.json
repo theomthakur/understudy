@@ -12,23 +12,23 @@
       "stepId": "s0",
       "action": "navigate",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:22.845Z",
-      "durationMs": 212,
+      "startedAt": "2026-08-24T20:33:41.081Z",
+      "durationMs": 213,
       "status": "ok"
     },
     {
       "stepId": "s1",
       "action": "type",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:23.101Z",
-      "durationMs": 20,
+      "startedAt": "2026-08-24T20:33:41.328Z",
+      "durationMs": 24,
       "status": "ok"
     }
   ],
   "evidence": {
-    "runId": "replay-20260823T181622-q5shi",
+    "runId": "replay-20260824T203341-lyv6l",
     "logPath": "evidence/curated/replay-hard-failure/events.jsonl",
     "screenshotPath": "evidence/curated/replay-hard-failure/failure.png"
   },
-  "durationMs": 300
+  "durationMs": 8498
 }

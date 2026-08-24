@@ -10,7 +10,7 @@
       "stepId": "s0",
       "action": "navigate",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:08.864Z",
+      "startedAt": "2026-08-24T20:33:26.994Z",
       "durationMs": 212,
       "status": "ok"
     },
@@ -18,14 +18,14 @@
       "stepId": "s1",
       "action": "type",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:09.118Z",
-      "durationMs": 20,
+      "startedAt": "2026-08-24T20:33:27.245Z",
+      "durationMs": 26,
       "status": "ok"
     }
   ],
   "evidence": {
-    "runId": "replay-20260823T181608-7x4sj",
+    "runId": "replay-20260824T203326-n8yfd",
     "logPath": "evidence/curated/replay-permission-denied/events.jsonl"
   },
-  "durationMs": 10603
+  "durationMs": 10613
 }

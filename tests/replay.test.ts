@@ -575,12 +575,34 @@ test("TENANT REUSE: the same artifact runs against a second tenant of the same p
     {
       tenantId: "summitline",
       baseUrl: `${BASE}/?tenant=summitline`,
-      descriptorOverrides: {},
+      descriptorOverrides: {
+        s1: {
+          name: "Member Number",
+          nameMatch: "exact",
+          fallbacks: [
+            { kind: "role-name", value: "Member Number", note: "tenant-specific accessible name" },
+            { kind: "label", value: "Member Number", note: "tenant-specific label association" },
+          ],
+        },
+      },
       note: "same vendor product, different branding",
     },
   ];
-  const r = await replay(artifact, { memberId: "12345" }, { ...deps(), tenantId: "summitline" });
+  const r = await replay(artifact, { memberId: "22871" }, { ...deps(), tenantId: "summitline" });
   assert.equal(r.status, "ok", `expected the base flow to work on tenant 2, got ${r.status}`);
+  if (r.status === "ok") {
+    assert.deepEqual(r.outputs.savingsBalance, { amount: 402.19, currency: "USD", display: "$402.19" });
+  }
+  const location = await surface.currentLocation();
+  assert.match(location, /tenant=summitline/, "tenant identity must survive the full flow");
+  const workspace = await fetch(location).then((response) => response.text());
+  assert.equal(
+    (workspace.match(/tenant=summitline/g) ?? []).length,
+    2,
+    "both workspace frames must preserve the tenant"
+  );
+  const detail = await fetch(`${BASE}/frame/member?memberId=22871&tenant=summitline`).then((response) => response.text());
+  assert.match(detail, /Summitline FCU/, "the completed replay must still be on the Summitline-branded surface");
 });
 
 test("TENANT SAFETY: an unknown tenant fails closed instead of running the base flow", async () => {

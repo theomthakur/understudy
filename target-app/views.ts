@@ -57,7 +57,13 @@ ${opts.body}
 }
 
 /** Landing / member search. Table-based layout, no test ids. */
-export function searchPage(tenant: string, error?: string, inputDelayMs = 0): string {
+export function searchPage(
+  tenant: string,
+  tenantKey: string,
+  searchLabel: string,
+  error?: string,
+  inputDelayMs = 0
+): string {
   const memberInput = '<input type="text" id="ctl00_MainPlaceHolder_txtMemberId" name="memberId" size="18" autocomplete="off">';
   const renderedInput = inputDelayMs > 0
     ? `<span id="delayed-member-input"></span><script>
@@ -75,9 +81,10 @@ export function searchPage(tenant: string, error?: string, inputDelayMs = 0): st
   <h2>Member Search</h2>
   ${error ? `<div class="err" role="alert">${error}</div>` : ""}
   <form method="GET" action="/members/lookup">
+    <input type="hidden" name="tenant" value="${tenantKey}">
     <table class="layout" style="width:auto">
       <tr>
-        <td><label for="ctl00_MainPlaceHolder_txtMemberId">Member ID</label></td>
+        <td><label for="ctl00_MainPlaceHolder_txtMemberId">${searchLabel}</label></td>
         <td>${renderedInput}</td>
         <td><input type="submit" class="btn" id="ctl00_MainPlaceHolder_btnSearch" value="Search"></td>
       </tr>
@@ -89,22 +96,23 @@ export function searchPage(tenant: string, error?: string, inputDelayMs = 0): st
 }
 
 /** Frameset workspace. The interesting content lives in the detail frame. */
-export function workspaceFrameset(tenant: string, memberId: string): string {
+export function workspaceFrameset(tenant: string, tenantKey: string, memberId: string): string {
+  const tenantParam = encodeURIComponent(tenantKey);
   return `<!DOCTYPE html>
 <html><head><title>Member Workspace ${memberId}</title></head>
 <frameset rows="34,*" frameborder="1" border="1">
-  <frame name="hdr" src="/frame/header?memberId=${encodeURIComponent(memberId)}" scrolling="no">
-  <frame name="detail" src="/frame/member?memberId=${encodeURIComponent(memberId)}">
+  <frame name="hdr" src="/frame/header?memberId=${encodeURIComponent(memberId)}&tenant=${tenantParam}" scrolling="no">
+  <frame name="detail" src="/frame/member?memberId=${encodeURIComponent(memberId)}&tenant=${tenantParam}">
 </frameset>
 </html>`;
 }
 
-export function headerFrame(tenant: string, memberId: string): string {
+export function headerFrame(tenant: string, tenantKey: string, memberId: string): string {
   return chrome({
     title: "hdr",
     tenant,
     body: `<div style="padding:6px 10px;background:#dfe5ec;border-bottom:1px solid #a9b5c4">
-      <span class="navlink"><a href="/" target="_top">Member Search</a></span>
+      <span class="navlink"><a href="/?tenant=${encodeURIComponent(tenantKey)}" target="_top">Member Search</a></span>
       <span class="navlink">Workspace: ${memberId}</span>
     </div>`,
   });
@@ -112,6 +120,7 @@ export function headerFrame(tenant: string, memberId: string): string {
 
 export interface DetailView {
   tenant: string;
+  tenantKey: string;
   memberId: string;
   fullName: string;
   branch: string;
@@ -133,7 +142,7 @@ export function memberDetailFrame(v: DetailView): string {
         <td>${a.status}</td>
         <td><a href="/accounts/${encodeURIComponent(a.accountNumber)}?memberId=${encodeURIComponent(
           v.memberId
-        )}" id="ctl00_MainPlaceHolder_grdAccounts_ctl0${i + 2}_lnkView">View</a></td>
+        )}&tenant=${encodeURIComponent(v.tenantKey)}" id="ctl00_MainPlaceHolder_grdAccounts_ctl0${i + 2}_lnkView">View</a></td>
       </tr>`
     )
     .join("");
@@ -161,7 +170,7 @@ export function memberDetailFrame(v: DetailView): string {
     </table>
   </td></tr></table>
   <div style="margin-top:12px">
-    <form method="POST" action="/members/${encodeURIComponent(v.memberId)}/subaccount" style="display:inline">
+    <form method="POST" action="/members/${encodeURIComponent(v.memberId)}/subaccount?tenant=${encodeURIComponent(v.tenantKey)}" style="display:inline">
       <input type="submit" class="btn" id="ctl00_MainPlaceHolder_btnOpenSub" value="Open Sub-Account">
     </form>
     <span style="margin-left:10px;color:#5b6775">Opening a sub-account requires confirmation.</span>
@@ -172,6 +181,7 @@ export function memberDetailFrame(v: DetailView): string {
 
 export function accountDetailFrame(v: {
   tenant: string;
+  tenantKey: string;
   memberId: string;
   accountNumber: string;
   type: string;
@@ -194,13 +204,13 @@ export function accountDetailFrame(v: {
   </table>
   <p style="margin-top:10px"><a href="/frame/member?memberId=${encodeURIComponent(
     v.memberId
-  )}">Back to Member Profile</a></p>
+  )}&tenant=${encodeURIComponent(v.tenantKey)}">Back to Member Profile</a></p>
 </div>`,
   });
 }
 
 /** Confirmation interstitial for the irreversible action. */
-export function confirmSubAccount(tenant: string, memberId: string): string {
+export function confirmSubAccount(tenant: string, tenantKey: string, memberId: string): string {
   return chrome({
     title: "Confirm Sub-Account",
     tenant,
@@ -208,7 +218,7 @@ export function confirmSubAccount(tenant: string, memberId: string): string {
 <div class="panel">
   <h2>Confirm New Sub-Account</h2>
   <div class="warn" role="alert">This action opens a new account and cannot be undone from this screen.</div>
-  <form method="POST" action="/members/${encodeURIComponent(memberId)}/subaccount/confirm">
+  <form method="POST" action="/members/${encodeURIComponent(memberId)}/subaccount/confirm?tenant=${encodeURIComponent(tenantKey)}">
     <table class="layout" style="width:auto">
       <tr>
         <td><label for="ctl00_MainPlaceHolder_txtNickname">Sub-Account Nickname</label></td>
@@ -217,14 +227,14 @@ export function confirmSubAccount(tenant: string, memberId: string): string {
     </table>
     <p>
       <input type="submit" class="btn" id="ctl00_MainPlaceHolder_btnConfirm" value="Confirm and Open">
-      <a href="/frame/member?memberId=${encodeURIComponent(memberId)}" style="margin-left:12px">Cancel</a>
+      <a href="/frame/member?memberId=${encodeURIComponent(memberId)}&tenant=${encodeURIComponent(tenantKey)}" style="margin-left:12px">Cancel</a>
     </p>
   </form>
 </div>`,
   });
 }
 
-export function sessionExpired(tenant: string): string {
+export function sessionExpired(tenant: string, tenantKey: string): string {
   return chrome({
     title: "Session Expired",
     tenant,
@@ -232,12 +242,12 @@ export function sessionExpired(tenant: string): string {
 <div class="panel">
   <h2>Session Expired</h2>
   <div class="err" role="alert">Your session has timed out due to inactivity. Please sign in again.</div>
-  <p><a href="/?resume=1" id="ctl00_lnkSignIn">Return to sign in</a></p>
+  <p><a href="/?resume=1&tenant=${encodeURIComponent(tenantKey)}" id="ctl00_lnkSignIn">Return to sign in</a></p>
 </div>`,
   });
 }
 
-export function permissionDenied(tenant: string, memberId: string): string {
+export function permissionDenied(tenant: string, tenantKey: string, memberId: string): string {
   return chrome({
     title: "Not Authorized",
     tenant,
@@ -245,7 +255,7 @@ export function permissionDenied(tenant: string, memberId: string): string {
 <div class="panel">
   <h2>Not Authorized</h2>
   <div class="err" role="alert">You do not have permission to view member ${memberId}. This record is restricted.</div>
-  <p><a href="/">Return to Member Search</a></p>
+  <p><a href="/?tenant=${encodeURIComponent(tenantKey)}">Return to Member Search</a></p>
 </div>`,
   });
 }

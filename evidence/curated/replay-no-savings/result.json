@@ -10,30 +10,30 @@
       "stepId": "s0",
       "action": "navigate",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:15:54.882Z",
-      "durationMs": 211,
+      "startedAt": "2026-08-24T20:33:12.932Z",
+      "durationMs": 212,
       "status": "ok"
     },
     {
       "stepId": "s1",
       "action": "type",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:15:55.139Z",
-      "durationMs": 21,
+      "startedAt": "2026-08-24T20:33:13.188Z",
+      "durationMs": 28,
       "status": "ok"
     },
     {
       "stepId": "s2",
       "action": "click",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:15:55.175Z",
-      "durationMs": 234,
+      "startedAt": "2026-08-24T20:33:13.235Z",
+      "durationMs": 261,
       "status": "ok"
     }
   ],
   "evidence": {
-    "runId": "replay-20260823T181554-fvarm",
+    "runId": "replay-20260824T203312-j0tdo",
     "logPath": "evidence/curated/replay-no-savings/events.jsonl"
   },
-  "durationMs": 3156
+  "durationMs": 3186
 }

@@ -1,15 +1,15 @@
-{"ts":"2026-08-23T18:16:26.525Z","level":"info","event":"replay.start","capability":"member.open_sub_account","revision":1,"runId":"replay-20260823T181626-c46kd","attended":false,"modelInvocations":0}
-{"ts":"2026-08-23T18:16:26.525Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
-{"ts":"2026-08-23T18:16:26.781Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
-{"ts":"2026-08-23T18:16:26.812Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
-{"ts":"2026-08-23T18:16:27.108Z","level":"info","event":"step.done","stepId":"s2","action":"click","status":"ok"}
-{"ts":"2026-08-23T18:16:29.904Z","level":"info","event":"step.done","stepId":"s4","action":"click","status":"ok"}
-{"ts":"2026-08-23T18:16:29.936Z","level":"info","event":"step.done","stepId":"s5","action":"type","status":"ok"}
-{"ts":"2026-08-23T18:16:29.936Z","level":"warn","event":"policy.risk_gate","stepId":"s6","risk":"irreversible","reason":"Irreversible step requires a human decision"}
-{"ts":"2026-08-23T18:16:32.469Z","level":"warn","event":"control.ceded","interventionId":"60d4fe89","from":"automation","to":"awaiting_human","reason":"Irreversible step requires a human decision","stepId":"s6"}
-{"ts":"2026-08-23T18:16:32.469Z","level":"warn","event":"escalation.raised","interventionId":"60d4fe89","reason":"Irreversible step requires a human decision","handoffUrl":"http://127.0.0.1:4317/studio/interventions/60d4fe89"}
-{"ts":"2026-08-23T18:16:32.473Z","level":"warn","event":"control.claimed","interventionId":"60d4fe89","operator":"candidate.reviewer"}
-{"ts":"2026-08-23T18:16:32.759Z","level":"warn","event":"control.released","interventionId":"60d4fe89","operator":"candidate.reviewer","note":"Confirmed the guarded action in the same live session.","durationMs":84,"humanEvents":[{"at":"2026-08-23T18:16:32.556Z","kind":"navigation","method":"POST","destination":"/members/[REDACTED]/subaccount/confirm"}]}
-{"ts":"2026-08-23T18:16:32.760Z","level":"info","event":"escalation.resumed","interventionId":"60d4fe89","stepId":"s6"}
-{"ts":"2026-08-23T18:16:35.315Z","level":"info","event":"step.done","stepId":"s6","action":"click","status":"human","interventionId":"60d4fe89"}
-{"ts":"2026-08-23T18:16:37.838Z","level":"info","event":"replay.ok","outputs":[],"durationMs":11313}
+{"ts":"2026-08-24T20:33:53.040Z","level":"info","event":"replay.start","capability":"member.open_sub_account","revision":1,"runId":"replay-20260824T203353-zpgzi","attended":false,"modelInvocations":0}
+{"ts":"2026-08-24T20:33:53.041Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
+{"ts":"2026-08-24T20:33:53.307Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
+{"ts":"2026-08-24T20:33:53.347Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
+{"ts":"2026-08-24T20:33:53.638Z","level":"info","event":"step.done","stepId":"s2","action":"click","status":"ok"}
+{"ts":"2026-08-24T20:33:56.433Z","level":"info","event":"step.done","stepId":"s4","action":"click","status":"ok"}
+{"ts":"2026-08-24T20:33:56.465Z","level":"info","event":"step.done","stepId":"s5","action":"type","status":"ok"}
+{"ts":"2026-08-24T20:33:56.465Z","level":"warn","event":"policy.risk_gate","stepId":"s6","risk":"irreversible","reason":"Irreversible step requires a human decision"}
+{"ts":"2026-08-24T20:33:59.009Z","level":"warn","event":"control.ceded","interventionId":"02e77b82","from":"automation","to":"awaiting_human","reason":"Irreversible step requires a human decision","stepId":"s6"}
+{"ts":"2026-08-24T20:33:59.010Z","level":"warn","event":"escalation.raised","interventionId":"02e77b82","reason":"Irreversible step requires a human decision","handoffUrl":"http://127.0.0.1:4317/studio/interventions/02e77b82"}
+{"ts":"2026-08-24T20:33:59.016Z","level":"warn","event":"control.claimed","interventionId":"02e77b82","operator":"candidate.reviewer"}
+{"ts":"2026-08-24T20:33:59.303Z","level":"warn","event":"control.released","interventionId":"02e77b82","operator":"candidate.reviewer","note":"Confirmed the guarded action in the same live session.","durationMs":84,"humanEvents":[{"at":"2026-08-24T20:33:59.099Z","kind":"navigation","method":"POST","destination":"/members/[REDACTED]/subaccount/confirm"}]}
+{"ts":"2026-08-24T20:33:59.304Z","level":"info","event":"escalation.resumed","interventionId":"02e77b82","stepId":"s6"}
+{"ts":"2026-08-24T20:34:01.848Z","level":"info","event":"step.done","stepId":"s6","action":"click","status":"human","interventionId":"02e77b82","checkpointVerified":true}
+{"ts":"2026-08-24T20:34:04.403Z","level":"info","event":"replay.ok","outputs":[],"durationMs":11363}

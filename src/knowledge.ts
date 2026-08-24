@@ -135,19 +135,27 @@ export const CU_RECOVERIES: RecoveryRule[] = [
  *
  * The only real differences are branding and one relabelled field: Riverbend calls it
  * "Member ID", Summitline calls it "Member Number". That is precisely the class of drift
- * an overlay should absorb, and the reason the base descriptor uses a substring-tolerant
- * fallback rather than requiring an exact label match everywhere.
+ * an explicit overlay should absorb. The label change is reviewable rather than hidden
+ * behind fuzzy matching.
  */
 export function cuTenantOverlays(basePort: number): TenantOverlay[] {
   return [
     {
       tenantId: "summitline",
       baseUrl: `http://localhost:${basePort}/?tenant=summitline`,
-      descriptorOverrides: {},
+      descriptorOverrides: {
+        s1: {
+          name: "Member Number",
+          nameMatch: "exact",
+          fallbacks: [
+            { kind: "role-name", value: "Member Number", note: "tenant-specific accessible name" },
+            { kind: "label", value: "Member Number", note: "tenant-specific label association" },
+          ],
+        },
+      },
       note:
         "Same vendor product, different branding. The member-id field is labelled 'Member Number' " +
-        "here; the base descriptor's contains-match fallback covers it, so no override is needed. " +
-        "If the label diverged further, the override would go here rather than in a new artifact.",
+        "here, so step s1 receives an explicit descriptor override. The rest of the flow is shared.",
     },
   ];
 }

@@ -265,8 +265,25 @@
     {
       "tenantId": "summitline",
       "baseUrl": "http://localhost:4471/?tenant=summitline",
-      "descriptorOverrides": {},
-      "note": "Same vendor product, different branding. The member-id field is labelled 'Member Number' here; the base descriptor's contains-match fallback covers it, so no override is needed. If the label diverged further, the override would go here rather than in a new artifact."
+      "descriptorOverrides": {
+        "s1": {
+          "name": "Member Number",
+          "nameMatch": "exact",
+          "fallbacks": [
+            {
+              "kind": "role-name",
+              "value": "Member Number",
+              "note": "tenant-specific accessible name"
+            },
+            {
+              "kind": "label",
+              "value": "Member Number",
+              "note": "tenant-specific label association"
+            }
+          ]
+        }
+      },
+      "note": "Same vendor product, different branding. Step s1 explicitly targets the tenant's 'Member Number' label; the rest of the flow is shared."
     }
   ],
   "approval": {
@@ -283,5 +300,5 @@
     "stepCount": 4,
     "transcriptRef": "evidence/examples/01-discovery-live/events.jsonl"
   },
-  "artifactHash": "7a04a18ceb908a8821ac73a9bd6854fa60e4193162a09eec6d14c6558fc81862"
+  "artifactHash": "d43a11196ca256bc9071bbb178a8768f7d48e9e601af39c99ae7828cd5cb7325"
 }

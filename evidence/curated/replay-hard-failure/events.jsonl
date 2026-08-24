@@ -1,6 +1,6 @@
-{"ts":"2026-08-23T18:16:22.845Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260823T181622-q5shi","attended":false,"modelInvocations":0}
-{"ts":"2026-08-23T18:16:22.845Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
-{"ts":"2026-08-23T18:16:23.101Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
-{"ts":"2026-08-23T18:16:23.138Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
-{"ts":"2026-08-23T18:16:23.139Z","level":"warn","event":"step.action_error","stepId":"s2","attempt":1,"detail":"Could not resolve control: role=button name~exact~\"Wire Funds\" frame=main"}
-{"ts":"2026-08-23T18:16:23.165Z","level":"error","event":"replay.failed","failure":"target_not_found","stepId":"s2","expected":"role=button name~exact~\"Wire Funds\" frame=main","observed":"Could not resolve control: role=button name~exact~\"Wire Funds\" frame=main"}
+{"ts":"2026-08-24T20:33:41.081Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260824T203341-lyv6l","attended":false,"modelInvocations":0}
+{"ts":"2026-08-24T20:33:41.081Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
+{"ts":"2026-08-24T20:33:41.328Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
+{"ts":"2026-08-24T20:33:41.367Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
+{"ts":"2026-08-24T20:33:49.566Z","level":"warn","event":"step.action_error","stepId":"s2","attempt":1,"detail":"Could not resolve control: role=button name~exact~\"Wire Funds\" frame=main"}
+{"ts":"2026-08-24T20:33:49.604Z","level":"error","event":"replay.failed","failure":"target_not_found","stepId":"s2","expected":"role=button name~exact~\"Wire Funds\" frame=main","observed":"Could not resolve control: role=button name~exact~\"Wire Funds\" frame=main"}

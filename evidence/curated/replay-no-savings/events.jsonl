@@ -1,7 +1,7 @@
-{"ts":"2026-08-23T18:15:54.882Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260823T181554-fvarm","attended":false,"modelInvocations":0}
-{"ts":"2026-08-23T18:15:54.882Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
-{"ts":"2026-08-23T18:15:55.139Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
-{"ts":"2026-08-23T18:15:55.175Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
-{"ts":"2026-08-23T18:15:55.451Z","level":"info","event":"step.done","stepId":"s2","action":"click","status":"ok"}
-{"ts":"2026-08-23T18:15:55.505Z","level":"warn","event":"step.action_error","stepId":"s3","attempt":1,"detail":"Could not resolve control: role=cell tableCell=SAVINGS×Balance within=row\"\"[hasText:\"SAVINGS\"] frame=name:detail"}
-{"ts":"2026-08-23T18:15:58.038Z","level":"info","event":"replay.business_outcome","code":"NO_SAVINGS_ACCOUNT","description":"The member exists and is viewable, but holds no savings account. A legitimate answer to 'what is their savings balance', and the caller needs to be able to tell it apart from 'the automation could not find the field'."}
+{"ts":"2026-08-24T20:33:12.931Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260824T203312-j0tdo","attended":false,"modelInvocations":0}
+{"ts":"2026-08-24T20:33:12.932Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471"}
+{"ts":"2026-08-24T20:33:13.188Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
+{"ts":"2026-08-24T20:33:13.234Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
+{"ts":"2026-08-24T20:33:13.533Z","level":"info","event":"step.done","stepId":"s2","action":"click","status":"ok"}
+{"ts":"2026-08-24T20:33:16.116Z","level":"info","event":"business_outcome.before_target_wait","stepId":"s3","code":"NO_SAVINGS_ACCOUNT"}
+{"ts":"2026-08-24T20:33:16.117Z","level":"info","event":"replay.business_outcome","code":"NO_SAVINGS_ACCOUNT","description":"The member exists and is viewable, but holds no savings account. A legitimate answer to 'what is their savings balance', and the caller needs to be able to tell it apart from 'the automation could not find the field'."}

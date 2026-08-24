@@ -12,7 +12,9 @@ import { Redactor } from "../src/policy/redact.js";
 import { EscalationBroker } from "../src/escalation/escalation.js";
 import { startTargetServer } from "../target-app/server.js";
 
-const TARGET_ORIGIN = "http://127.0.0.1:4471";
+// Match the host used by the target server and approved artifacts. On macOS, localhost may
+// bind IPv6 while 127.0.0.1 reaches a different socket and makes curation fail midway.
+const TARGET_ORIGIN = "http://localhost:4471";
 const STAGE = resolve("evidence/.curation-stage");
 const CURATED = resolve("evidence/curated");
 
@@ -188,9 +190,12 @@ async function main(): Promise<void> {
     assert.ok(failed.screenshotPaths.some((path) => path.endsWith("failure.png")));
     cases.push(entry("replay-hard-failure", "12345", failed, undefined, "target_not_found"));
 
-    const tenant = await runCase("replay-second-tenant", "12345", undefined, "summitline");
+    const tenant = await runCase("replay-second-tenant", "22871", undefined, "summitline");
     assert.equal(tenant.result.status, "ok");
-    cases.push(entry("replay-second-tenant", "12345", tenant));
+    if (tenant.result.status === "ok") {
+      assert.deepEqual(tenant.result.outputs.savingsBalance, { amount: 402.19, currency: "USD", display: "$402.19" });
+    }
+    cases.push(entry("replay-second-tenant", "22871", tenant));
 
     const handoff = await curateHandoff();
     cases.push(entry("replay-handoff", "12345", handoff));

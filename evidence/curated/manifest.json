@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-23T18:16:37.868Z",
+  "generatedAt": "2026-08-24T20:34:04.433Z",
   "environment": "synthetic",
   "discovery": {
     "model": "codex-cli:account-default",
@@ -91,7 +91,7 @@
     {
       "label": "replay-second-tenant",
       "capability": "member.read_savings_balance",
-      "syntheticInput": "12345",
+      "syntheticInput": "22871",
       "expectedStatus": "ok",
       "resultPath": "evidence/curated/replay-second-tenant/result.json",
       "screenshotPaths": [

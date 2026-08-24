@@ -1,8 +1,8 @@
-{"ts":"2026-08-23T18:16:23.264Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260823T181623-v2ysk","tenantId":"summitline","attended":false,"modelInvocations":0}
-{"ts":"2026-08-23T18:16:23.264Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471/?tenant=summitline"}
-{"ts":"2026-08-23T18:16:23.508Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
-{"ts":"2026-08-23T18:16:23.545Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
-{"ts":"2026-08-23T18:16:23.824Z","level":"info","event":"step.done","stepId":"s2","action":"click","status":"ok"}
-{"ts":"2026-08-23T18:16:23.866Z","level":"info","event":"step.read","stepId":"s3","outputKey":"savingsBalance","value":{"amount":"[REDACTED]","currency":"USD","display":"[REDACTED]"},"proof":{"type":"currency","sha256":"f6452d678a043d5b36c9f71d1bca3ff53054f2394f55bbee009a002f8fa89dd0","masked":"$8*****55"}}
-{"ts":"2026-08-23T18:16:23.881Z","level":"info","event":"step.done","stepId":"s3","action":"read","status":"ok"}
-{"ts":"2026-08-23T18:16:26.422Z","level":"info","event":"replay.ok","outputs":["savingsBalance"],"durationMs":3158}
+{"ts":"2026-08-24T20:33:49.727Z","level":"info","event":"replay.start","capability":"member.read_savings_balance","revision":1,"runId":"replay-20260824T203349-s8vfi","tenantId":"summitline","attended":false,"modelInvocations":0}
+{"ts":"2026-08-24T20:33:49.727Z","level":"info","event":"step.navigate","stepId":"s0","url":"http://localhost:4471/?tenant=summitline"}
+{"ts":"2026-08-24T20:33:49.965Z","level":"info","event":"step.done","stepId":"s0","action":"navigate","status":"ok"}
+{"ts":"2026-08-24T20:33:50.002Z","level":"info","event":"step.done","stepId":"s1","action":"type","status":"ok"}
+{"ts":"2026-08-24T20:33:50.264Z","level":"info","event":"step.done","stepId":"s2","action":"click","status":"ok"}
+{"ts":"2026-08-24T20:33:50.340Z","level":"info","event":"step.read","stepId":"s3","outputKey":"savingsBalance","value":{"amount":"[REDACTED]","currency":"USD","display":"[REDACTED]"},"proof":{"type":"currency","sha256":"1cecb5322daf4d89966c8358bd81e579e4b249f6ef8f58690bf3250b92837084","masked":"$4***19"}}
+{"ts":"2026-08-24T20:33:50.356Z","level":"info","event":"step.done","stepId":"s3","action":"read","status":"ok"}
+{"ts":"2026-08-24T20:33:52.900Z","level":"info","event":"replay.ok","outputs":["savingsBalance"],"durationMs":3174}

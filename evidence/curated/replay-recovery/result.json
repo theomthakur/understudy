@@ -14,38 +14,38 @@
       "stepId": "s0",
       "action": "navigate",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:19.584Z",
-      "durationMs": 212,
+      "startedAt": "2026-08-24T20:33:37.762Z",
+      "durationMs": 215,
       "status": "ok"
     },
     {
       "stepId": "s1",
       "action": "type",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:19.844Z",
-      "durationMs": 21,
+      "startedAt": "2026-08-24T20:33:38.011Z",
+      "durationMs": 24,
       "status": "ok"
     },
     {
       "stepId": "s2",
       "action": "click",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:19.880Z",
-      "durationMs": 232,
+      "startedAt": "2026-08-24T20:33:38.050Z",
+      "durationMs": 233,
       "status": "ok"
     },
     {
       "stepId": "s3",
       "action": "read",
       "risk": "safe",
-      "startedAt": "2026-08-23T18:16:20.149Z",
-      "durationMs": 43,
+      "startedAt": "2026-08-24T20:33:38.333Z",
+      "durationMs": 77,
       "status": "ok"
     }
   ],
   "evidence": {
-    "runId": "replay-20260823T181619-uov6o",
+    "runId": "replay-20260824T203337-xsar7",
     "logPath": "evidence/curated/replay-recovery/events.jsonl"
   },
-  "durationMs": 3160
+  "durationMs": 3207
 }

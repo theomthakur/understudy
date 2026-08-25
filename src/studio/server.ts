@@ -115,7 +115,7 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
     const memberId = typeof req.body?.memberId === "string" ? req.body.memberId.trim() : "";
     const tenantId = req.body?.tenantId === "summitline" ? "summitline" : undefined;
     if (!/^\d{3,10}$/.test(memberId)) {
-      res.status(422).json({ error: "memberId must be a 3–10 digit synthetic member number" });
+      res.status(422).json({ error: "memberId must be a 3 to 10 digit synthetic member number" });
       return;
     }
     const surface = new WebSurface({ headless: true });

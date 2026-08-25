@@ -336,7 +336,7 @@ async function playDiscovery() {
     return;
   }
   if (!/^\d{3,10}$/.test(memberId)) {
-    notify("Check the discovery value", "Use a 3–10 digit synthetic member number.");
+    notify("Check the discovery value", "Use a 3 to 10 digit synthetic member number.");
     discoveryMemberInput.focus();
     return;
   }
@@ -420,7 +420,7 @@ copyDiscovery.addEventListener("click", async () => {
   const goal = discoveryGoal.value.trim();
   const memberId = discoveryMemberInput.value.trim();
   if (!goal || !/^\d{3,10}$/.test(memberId)) {
-    notify("Complete the discovery input", "Enter a goal and a 3–10 digit synthetic member number first.");
+    notify("Complete the discovery input", "Enter a goal and a 3 to 10 digit synthetic member number first.");
     return;
   }
   const command = discoveryCommand();

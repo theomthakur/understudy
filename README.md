@@ -27,7 +27,7 @@ Then use these links:
 | Page | Link | What it shows |
 | --- | --- | --- |
 | Overview | http://localhost:4317/studio | The complete goal-to-proof flow |
-| Guided demo | http://localhost:4317/studio#studio | Natural-language discovery input and live deterministic replay |
+| Guided demo | http://localhost:4317/studio#studio | Prompt examples, animated discovery walkthrough, genuine command, and live replay |
 | Proof | http://localhost:4317/studio#evidence | Approved artifact, genuine discovery evidence, replay evidence, and result types |
 | Human review | http://localhost:4317/studio#interventions | Enforced transfer of the same live browser session to a person |
 | Design decisions | http://localhost:4317/studio#decisions | High-level architecture and all eighteen important design choices |
@@ -42,17 +42,18 @@ The main repository documents are:
 ## Five-minute reviewer flow
 
 1. Open **Overview** and read the five stages: goal, discovery, review, replay, proof.
-2. Open **Guided demo**. The first tab shows the normal human-language goal. It can be edited, and the button copies the exact live discovery command.
-3. Click **Inspect committed discovery proof**. This is a genuine saved model run of the default goal, not a simulated animation.
-4. Return to **Guided demo**, choose **Deterministic replay**, and run these synthetic cases:
+2. Open **Guided demo**. Choose one of the three example prompts, or paste equivalent wording. Keep the synthetic discovery value `12345`, then click **Play guided discovery**. The timeline highlights observation, model choice, action, and compilation in order while the target changes from search to member profile.
+3. For the savings-balance example, click **Inspect genuine discovery proof**. The animation is a walkthrough of that committed model run. It is labelled as playback and is not presented as a newly invoked model.
+4. Use **Show and copy genuine command** when you want to run the selected goal with local model credentials and create a new draft artifact. The exact command also appears in the page, so it remains usable if browser clipboard access is unavailable.
+5. Return to **Guided demo**, choose **Deterministic replay**, and run these synthetic cases:
 
    - `22871`: successful typed balance
    - `44120`: `NO_SAVINGS_ACCOUNT`
    - `30099`: `PERMISSION_DENIED`
    - `99999`: `MEMBER_NOT_FOUND`
 
-5. Open **Human review**, start the safety demo, take control of the paused session, complete the guarded action, and return control. Replay checks the expected screen before continuing.
-6. Use **Design decisions** for the high-level architecture and tradeoffs. Use **Presentation** for the guided explanation.
+6. Open **Human review**, start the safety demo, take control of the paused session, complete the guarded action, and return control. Replay checks the expected screen before continuing.
+7. Use **Design decisions** for the high-level architecture and tradeoffs. Use **Presentation** for the guided explanation.
 
 ## Where the human-language query goes
 
@@ -60,9 +61,11 @@ The normal-language goal is the input to discovery. The default example is:
 
 > Look up the member with the given member ID, open their profile, and read the current balance of their SAVINGS account. Capture it as the output 'savingsBalance'.
 
-It appears in the first tab of **Guided demo**. The Studio copies a command that runs the real discovery loop from the repository. Live discovery stays in the CLI because it needs access to a supported model provider and writes a new draft artifact. Keeping that operation explicit prevents a reviewer from accidentally spending model tokens or overwriting the committed reference artifact.
+It appears in the first tab of **Guided demo**, beside a synthetic member value and two other goal examples. **Play guided discovery** animates the selected goal through the expected stages. For the default balance goal, those stages are tied to the committed genuine discovery evidence. The other two examples are explicitly labelled illustrated previews because no model run is committed for them.
 
-The Studio separately exposes the committed genuine discovery run. It never labels that saved evidence as a new run of edited text.
+**Show and copy genuine command** creates the exact CLI command for the selected goal, contract, and synthetic value. It displays the command in the page and attempts to copy it. Live discovery stays in the CLI because it needs access to a supported model provider and writes a new draft artifact. Keeping that operation explicit prevents a reviewer from accidentally spending model tokens or overwriting the committed reference artifact.
+
+The Studio separately exposes the committed genuine discovery run. It never labels playback or preview as a new model run.
 
 ## Complete discovery and replay path
 

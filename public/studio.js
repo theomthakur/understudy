@@ -2,6 +2,7 @@ const state = {
   view: "overview",
   mode: "discovery",
   running: false,
+  discoveryRunning: false,
   handoff: "idle",
   interventionId: null,
   targetOrigin: "/legacy",
@@ -15,10 +16,15 @@ const runButton = $("#run-capability");
 const discoveryGoal = $("#discovery-goal");
 const capabilityBox = $("#capability-box");
 const inspectDiscovery = $("#inspect-discovery");
+const copyDiscovery = $("#copy-discovery");
+const discoveryMemberInput = $("#discovery-member-id");
+const discoveryCommandPanel = $("#discovery-command-panel");
+const discoveryCommandPreview = $("#discovery-command-preview");
 const memberInput = $("#member-id");
 const timeline = $("#timeline");
 const output = $("#run-output");
 const surfaceAddress = $("#surface-address");
+const surfaceStage = $("#surface-stage");
 const toast = $("#toast");
 
 const pageMeta = {
@@ -70,12 +76,52 @@ const replaySteps = [
   ["Extract savings balance", "Resolve the relational SAVINGS × Balance table cell"],
 ];
 
-const discoverySteps = [
-  ["Observe live surface", "Screenshot and numbered accessibility candidates captured"],
-  ["Model chooses input", "Structured decision can reference only a listed candidate"],
-  ["Model submits search", "The runtime, not the model, operates the live control"],
-  ["Compile capability", "Recorder removes volatile data and adds typed contracts"],
-];
+const DISCOVERY_PLANS = {
+  balance: {
+    steps: [
+      ["Observe live surface", "Screenshot and numbered accessibility candidates captured"],
+      ["Model chooses input", "Select Member ID from the controls offered by the runtime"],
+      ["Model submits search", "The runtime types the sample value and operates Search"],
+      ["Read result and compile", "Capture SAVINGS × Balance and build the typed draft"],
+    ],
+    stages: [
+      ["Observing the search screen", "Screenshot captured · 6 accessible controls found", "Observation", "6 controls", "search"],
+      ["Model selected Member ID", "Candidate e1 · textbox · parameter memberId", "Model decision", "type(e1, memberId)", "search"],
+      ["Runtime submitted the search", "Candidate e2 · button · Member Profile checkpoint", "Action and check", "Profile reached", "profile"],
+      ["Recorder compiled the flow", "Literal balance removed · SAVINGS × Balance saved", "Draft capability", "4 replay steps", "profile"],
+    ],
+  },
+  status: {
+    steps: [
+      ["Observe live surface", "Screenshot and numbered accessibility candidates captured"],
+      ["Model chooses input", "Select Member ID from the controls offered by the runtime"],
+      ["Model submits search", "The runtime types the sample value and operates Search"],
+      ["Read result and compile", "Capture CHECKING × Status and build the typed draft"],
+    ],
+    stages: [
+      ["Observing the search screen", "Screenshot captured · accessible controls numbered", "Observation", "Search controls", "search"],
+      ["Model selected Member ID", "Textbox chosen from the constrained candidate list", "Model decision", "type(memberId)", "search"],
+      ["Runtime submitted the search", "Member Profile checkpoint confirmed", "Action and check", "Profile reached", "profile"],
+      ["Recorder would compile the flow", "CHECKING × Status becomes the typed output target", "Illustrated preview", "4 replay steps", "profile"],
+    ],
+  },
+  subaccount: {
+    steps: [
+      ["Observe live surface", "Screenshot and numbered accessibility candidates captured"],
+      ["Model chooses input", "Select Member ID from the controls offered by the runtime"],
+      ["Model submits search", "The runtime types the sample value and operates Search"],
+      ["Model finds the guarded action", "Open Sub-Account is classified before it can run"],
+      ["Stop and compile", "Save the reversible path and require a person at confirmation"],
+    ],
+    stages: [
+      ["Observing the search screen", "Screenshot captured · accessible controls numbered", "Observation", "Search controls", "search"],
+      ["Model selected Member ID", "Textbox chosen from the constrained candidate list", "Model decision", "type(memberId)", "search"],
+      ["Runtime submitted the search", "Member Profile checkpoint confirmed", "Action and check", "Profile reached", "profile"],
+      ["Risk policy inspected the next action", "Open Sub-Account leads to an irreversible confirmation", "Policy decision", "Human gate required", "profile"],
+      ["Recorder would compile the guarded path", "Automation stops before confirmation and transfers control", "Illustrated preview", "Guarded draft", "profile"],
+    ],
+  },
+};
 
 /**
  * Each preset is a complete discovery contract, not just prose. The copied
@@ -90,19 +136,17 @@ const GOAL_PRESETS = {
     goal: "Look up the member with the given member ID, open their profile, and read the current balance of their SAVINGS account. Capture it as the output 'savingsBalance'.",
     name: "member.read_savings_balance_v2",
     input: "memberId:string:sensitive=^\\d{3,10}$",
-    value: "memberId=12345",
     output: "savingsBalance:currency:sensitive",
     contractOutput: "savingsBalance: sensitive currency",
     risk: "Safe",
     proof: true,
-    note: "Committed proof exists for this goal. Open <b>Inspect committed discovery proof</b> to see the genuine model run that produced the saved capability.",
+    note: "Committed proof exists for this goal. Play the guided run, or open <b>Inspect genuine discovery proof</b> to see the saved model events.",
   },
   status: {
     label: "Check account status",
     goal: "Look up the member with the given member ID, open their profile, and read the status of their CHECKING account. Capture it as the output 'accountStatus'.",
     name: "member.read_checking_status_v1",
     input: "memberId:string:sensitive=^\\d{3,10}$",
-    value: "memberId=12345",
     output: "accountStatus:string",
     contractOutput: "accountStatus: string",
     risk: "Safe",
@@ -114,7 +158,6 @@ const GOAL_PRESETS = {
     goal: "Look up the member with the given member ID, open their profile, start a new sub-account for them, and continue to the confirmation screen without submitting it.",
     name: "member.open_sub_account_v2",
     input: "memberId:string:sensitive=^\\d{3,10}$",
-    value: "memberId=12345",
     output: "",
     contractOutput: "none declared",
     risk: "Irreversible",
@@ -136,6 +179,13 @@ function applyPreset(key) {
   risk.textContent = preset.risk;
   risk.className = preset.risk === "Safe" ? "badge success" : "badge warn";
   inspectDiscovery.hidden = !preset.proof || state.mode === "replay";
+  discoveryCommandPanel.hidden = true;
+  if (state.mode === "discovery" && !state.discoveryRunning) {
+    const plan = DISCOVERY_PLANS[key];
+    renderTimeline(plan.steps);
+    output.className = "output-card";
+    output.innerHTML = `<div class="output-label">Ready for discovery walkthrough</div><div class="output-value">${plan.steps.length} stages</div><div class="output-sub">Press Play to see this goal move through the interface</div>`;
+  }
 }
 
 document.querySelectorAll("#goal-examples .quick-value").forEach((button) => {
@@ -161,6 +211,7 @@ function targetUrl(memberId) {
 }
 
 function setMode(mode) {
+  if (state.discoveryRunning) return;
   state.mode = mode;
   document.querySelectorAll(".mode-button").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
   $("#mode-title").textContent = mode === "replay" ? "Invoke the approved capability" : "Give the model a goal";
@@ -170,23 +221,30 @@ function setMode(mode) {
   $("#goal-examples").hidden = mode === "replay";
   $("#goal-hint").hidden = mode === "replay";
   $("#goal-example-note").hidden = mode === "replay";
+  $("#discovery-parameter-field").hidden = mode === "replay";
   capabilityBox.hidden = mode !== "replay";
   $("#parameter-field").hidden = mode !== "replay";
-  runButton.textContent = mode === "replay" ? "Run deterministic replay →" : "Copy live discovery command →";
+  runButton.textContent = mode === "replay" ? "Run deterministic replay →" : "Play guided discovery →";
+  copyDiscovery.hidden = mode === "replay";
+  discoveryCommandPanel.hidden = true;
   inspectDiscovery.hidden = mode === "replay" || !(GOAL_PRESETS[activePreset] ?? {}).proof;
   $("#model-zero").hidden = mode !== "replay";
+  surfaceStage.hidden = true;
+  $("#surface-panel").classList.remove("discovery-active");
+  $("#execution-badge").textContent = mode === "replay" ? "Live engine" : "Ready";
+  $("#execution-badge").className = "badge success";
   const note = $("#mode-note");
   note.classList.toggle("discovery-note", mode === "discovery");
   note.querySelector(".check").textContent = mode === "replay" ? "✓" : "i";
-  note.querySelector("strong").textContent = mode === "replay" ? "Policy preflight passed." : "Live discovery uses the CLI.";
+  note.querySelector("strong").textContent = mode === "replay" ? "Policy preflight passed." : "The animation is an evidence walkthrough.";
   $("#mode-note-detail").textContent = mode === "replay"
     ? " Origin, route, action type, and input contract are allowlisted."
-    : " The model needs local credentials. This Studio copies the exact command; the proof tab shows a genuine committed run of the default goal.";
-  renderTimeline(mode === "replay" ? replaySteps : discoverySteps);
+    : " It shows the recorded stages without spending model tokens. Use the copied CLI command to run a new genuine discovery.";
+  renderTimeline(mode === "replay" ? replaySteps : DISCOVERY_PLANS[activePreset].steps);
   if (mode === "discovery") {
-    iframe.src = targetUrl("12345");
-    surfaceAddress.textContent = "Committed discovery · synthetic input [redacted]";
-    output.innerHTML = `<div class="output-label">Committed example artifact</div><div class="output-value">4 steps</div><div class="output-sub">Saved from the default goal · inspect the genuine proof beside it</div>`;
+    iframe.src = `${state.targetOrigin}/`;
+    surfaceAddress.textContent = "Ready · synthetic discovery value [redacted]";
+    output.innerHTML = `<div class="output-label">Ready for discovery walkthrough</div><div class="output-value">${DISCOVERY_PLANS[activePreset].steps.length} stages</div><div class="output-sub">Choose a prompt and press Play guided discovery</div>`;
   } else {
     iframe.src = targetUrl(memberInput.value || "22871");
     surfaceAddress.textContent = targetUrl(memberInput.value || "22871");
@@ -198,19 +256,7 @@ document.querySelectorAll(".mode-button").forEach((button) => button.addEventLis
 
 async function runReplay() {
   if (state.mode === "discovery") {
-    const goal = discoveryGoal.value.trim();
-    if (!goal) {
-      notify("Enter a goal", "Describe the UI task in normal language before creating the discovery command.");
-      discoveryGoal.focus();
-      return;
-    }
-    const preset = GOAL_PRESETS[activePreset] ?? GOAL_PRESETS.balance;
-    const quotedGoal = `'${goal.replaceAll("'", `'\"'\"'`)}'`;
-    const outputLine = preset.output ? `\\\n  --output ${preset.output}` : "";
-    const command = `npm run discover -- \\\n  --goal ${quotedGoal} \\\n  --name ${preset.name} \\\n  --input '${preset.input}' \\\n  --value ${preset.value}${outputLine} \\\n  --headed`;
-    await copyText(command);
-    notify("Live discovery command copied", "Run it from the repository after configuring a supported model provider.");
-    return;
+    return playDiscovery();
   }
   if (state.running) return;
   const memberId = memberInput.value.trim();
@@ -268,6 +314,118 @@ async function runReplay() {
   }
 }
 
+async function playDiscovery() {
+  const goal = discoveryGoal.value.trim();
+  const memberId = discoveryMemberInput.value.trim();
+  if (!goal) {
+    notify("Enter a goal", "Describe the UI task in normal language before starting the walkthrough.");
+    discoveryGoal.focus();
+    return;
+  }
+  if (!/^\d{3,10}$/.test(memberId)) {
+    notify("Check the discovery value", "Use a 3–10 digit synthetic member number.");
+    discoveryMemberInput.focus();
+    return;
+  }
+  if (state.discoveryRunning) return;
+
+  const preset = GOAL_PRESETS[activePreset] ?? GOAL_PRESETS.balance;
+  const plan = DISCOVERY_PLANS[activePreset] ?? DISCOVERY_PLANS.balance;
+  state.discoveryRunning = true;
+  runButton.disabled = true;
+  copyDiscovery.disabled = true;
+  inspectDiscovery.disabled = true;
+  discoveryGoal.disabled = true;
+  discoveryMemberInput.disabled = true;
+  document.querySelectorAll(".mode-button, #goal-examples .quick-value").forEach((button) => { button.disabled = true; });
+  runButton.textContent = "Playing discovery…";
+  $("#surface-panel").classList.add("discovery-active");
+  surfaceStage.hidden = false;
+  surfaceStage.classList.remove("complete");
+  $("#execution-badge").textContent = preset.proof ? "Committed evidence playback" : "Illustrated preview";
+  $("#execution-badge").className = preset.proof ? "badge info" : "badge warn";
+
+  try {
+    for (let index = 0; index < plan.stages.length; index += 1) {
+      const [title, detail, label, value, target] = plan.stages[index];
+      renderTimeline(plan.steps, index);
+      $("#surface-stage-title").textContent = `${index + 1}/${plan.stages.length} · ${title}`;
+      $("#surface-stage-detail").textContent = detail;
+      output.className = "output-card progress";
+      output.innerHTML = `<div class="output-label">${label}</div><div class="output-value">${value}</div><div class="output-sub">${detail}</div>`;
+      iframe.src = target === "profile" ? targetUrl(memberId) : `${state.targetOrigin}/`;
+      surfaceAddress.textContent = target === "profile"
+        ? `${state.targetOrigin}/workspace?memberId=[redacted]`
+        : `${state.targetOrigin}/ · observing controls`;
+      iframe.classList.remove("discovery-transition");
+      void iframe.offsetWidth;
+      iframe.classList.add("discovery-transition");
+      await delay(index === 0 ? 1100 : 900);
+    }
+
+    renderTimeline(plan.steps, plan.steps.length);
+    surfaceStage.classList.add("complete");
+    $("#surface-stage-title").textContent = "Discovery walkthrough complete";
+    $("#surface-stage-detail").textContent = preset.proof
+      ? "The saved model run compiled the approved reference capability"
+      : "Run the copied command to create a genuine draft for this example";
+    $("#execution-badge").textContent = "Complete";
+    $("#execution-badge").className = "badge success";
+    output.className = "output-card";
+    output.innerHTML = preset.proof
+      ? `<div class="output-label">Genuine discovery playback complete</div><div class="output-value">member.read_savings_balance</div><div class="output-sub">Typed input · typed output · 4 deterministic replay steps</div>`
+      : `<div class="output-label">Illustrated preview complete</div><div class="output-value">${preset.name}</div><div class="output-sub">Copy and run the genuine command to create this draft</div>`;
+    notify("Discovery walkthrough complete", preset.proof
+      ? "The timeline replayed the committed model-driven discovery stages."
+      : "This preview shows the intended stages; no model run is claimed for this example.");
+  } catch (error) {
+    output.className = "output-card fail";
+    output.innerHTML = `<div class="output-label">Walkthrough stopped</div><div class="output-value">Could not continue</div><div class="output-sub">${error.message}</div>`;
+    notify("Discovery walkthrough stopped", error.message);
+  } finally {
+    state.discoveryRunning = false;
+    runButton.disabled = false;
+    copyDiscovery.disabled = false;
+    inspectDiscovery.disabled = false;
+    discoveryGoal.disabled = false;
+    discoveryMemberInput.disabled = false;
+    document.querySelectorAll(".mode-button, #goal-examples .quick-value").forEach((button) => { button.disabled = false; });
+    runButton.textContent = "Play again →";
+  }
+}
+
+function discoveryCommand() {
+  const goal = discoveryGoal.value.trim();
+  const memberId = discoveryMemberInput.value.trim();
+  const preset = GOAL_PRESETS[activePreset] ?? GOAL_PRESETS.balance;
+  const quotedGoal = `'${goal.replaceAll("'", `'\"'\"'`)}'`;
+  const outputLine = preset.output ? `\\\n  --output ${preset.output}` : "";
+  return `npm run discover -- \\\n  --goal ${quotedGoal} \\\n  --name ${preset.name} \\\n  --input '${preset.input}' \\\n  --value memberId=${memberId}${outputLine} \\\n  --headed`;
+}
+
+copyDiscovery.addEventListener("click", async () => {
+  const goal = discoveryGoal.value.trim();
+  const memberId = discoveryMemberInput.value.trim();
+  if (!goal || !/^\d{3,10}$/.test(memberId)) {
+    notify("Complete the discovery input", "Enter a goal and a 3–10 digit synthetic member number first.");
+    return;
+  }
+  const command = discoveryCommand();
+  discoveryCommandPreview.textContent = command;
+  discoveryCommandPanel.hidden = false;
+  const copied = await copyText(command);
+  $("#command-copy-state").textContent = copied ? "Copied" : "Select and copy below";
+  notify(copied ? "Genuine discovery command copied" : "Genuine discovery command ready", "Run it from the repository after configuring a supported model provider.");
+});
+
+[discoveryGoal, discoveryMemberInput].forEach((input) => input.addEventListener("input", () => {
+  discoveryCommandPanel.hidden = true;
+}));
+
+function delay(ms) {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
+}
+
 inspectDiscovery.addEventListener("click", () => {
   showView("evidence");
   notify("Committed discovery opened", "This evidence is from a genuine model-driven run of the default goal.");
@@ -275,7 +433,7 @@ inspectDiscovery.addEventListener("click", () => {
 
 async function copyText(value) {
   if (navigator.clipboard?.writeText) {
-    try { await navigator.clipboard.writeText(value); return; } catch { /* fall through */ }
+    try { await navigator.clipboard.writeText(value); return true; } catch { /* fall through */ }
   }
   const helper = document.createElement("textarea");
   helper.value = value;
@@ -283,8 +441,9 @@ async function copyText(value) {
   helper.style.opacity = "0";
   document.body.appendChild(helper);
   helper.select();
-  document.execCommand("copy");
+  const copied = document.execCommand("copy");
   helper.remove();
+  return copied;
 }
 
 runButton.addEventListener("click", runReplay);
@@ -445,5 +604,6 @@ window.addEventListener("hashchange", () => {
   if (pageMeta[name] && name !== state.view) showView(name);
 });
 
+applyPreset("balance");
 setMode("discovery");
 loadStudioData();

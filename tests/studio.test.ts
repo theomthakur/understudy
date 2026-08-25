@@ -17,6 +17,11 @@ test("Studio proxies the live synthetic target on the reviewer-visible origin", 
 test("Studio starts with pending timeline steps rather than completed checkmarks", async () => {
   const source = await readFile("public/studio.js", "utf8");
   assert.match(source, /function renderTimeline\(steps, completed = -1,/);
+  assert.match(source, /async function playDiscovery\(\)/);
+  assert.match(source, /renderTimeline\(plan\.steps, index\)/);
+  assert.match(source, /await delay\(index === 0 \? 1100 : 900\)/);
+  assert.match(source, /Committed evidence playback/);
+  assert.match(source, /Illustrated preview/);
 });
 
 test("Studio design register and presentation stay aligned with committed content", async () => {
@@ -25,7 +30,12 @@ test("Studio design register and presentation stay aligned with committed conten
   assert.equal((source.match(/<article class="slide(?: active)?">/g) ?? []).length, 14);
   assert.match(source, /<b>8<\/b><span>curated replay cases<\/span>/);
   assert.match(source, /id="discovery-goal"/);
-  assert.match(source, /Copy live discovery command/);
+  assert.match(source, /id="discovery-member-id"/);
+  assert.match(source, /Play guided discovery/);
+  assert.match(source, /Show and copy genuine command/);
+  assert.match(source, /id="discovery-command-panel"/);
+  assert.match(source, /id="surface-stage"/);
+  assert.equal((source.match(/data-goal="/g) ?? []).length, 3);
   assert.match(source, /High-level system design/);
   assert.match(source, /Thank you\./);
   assert.doesNotMatch(source, /seven curated scenarios|Never raw selectors|Every mutation is followed by a checkpoint/);

@@ -117,7 +117,7 @@ The submission focuses on the required vertical slice. It does not add a voice i
 
 The operator interface is intentionally small. It proves same-session ownership and verified resume; it does not claim to be a production co-browsing system. Authentication and durable ownership are stated deployment gaps.
 
-The Capability Studio is a reviewer aid over the same implementation. It has six sections: Overview, Guided demo, Proof, Human review, Design decisions, and Presentation. The Guided demo starts with an editable human-language goal and copies the real CLI command. It does not mislabel the committed discovery evidence as a new run. Design decisions includes the high-level architecture and eighteen decisions. Presentation is a fourteen-slide walkthrough. The CLI remains the full discovery, approval, and replay path.
+The Capability Studio is a reviewer aid over the same implementation. It has six sections: Overview, Guided demo, Proof, Human review, Design decisions, and Presentation. The Guided demo provides three goal examples, a synthetic discovery input, and an animated stage-by-stage walkthrough. The default goal replays the shape of committed genuine discovery evidence; the other examples are labelled illustrated previews. A separate button copies the real CLI command, so playback is never presented as a new model run. Design decisions includes the high-level architecture and eighteen decisions. Presentation is a fourteen-slide walkthrough. The CLI remains the full discovery, approval, and replay path.
 
 Hosting is not included because the assignment does not require it. Docker remains an optional local run method only.
 

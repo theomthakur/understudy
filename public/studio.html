@@ -176,7 +176,7 @@
         </section>
 
         <section class="view" data-name="presentation">
-          <div class="view-heading"><div><h1>Presentation</h1><p>The whole submission in fourteen slides. Use the arrow keys or the controls below; every claim on a slide is backed by a runnable path elsewhere in this Studio.</p></div><span class="status-pill"><b id="slide-counter">1 / 14</b> · arrow keys work</span></div>
+          <div class="view-heading"><div><h1>Presentation</h1><p>The whole submission in ten focused slides. Use the arrow keys or the controls below; every claim on a slide is backed by a runnable path elsewhere in this Studio.</p></div><span class="status-pill"><b id="slide-counter">1 / 10</b> · arrow keys work</span></div>
           <div class="deck-shell">
             <div class="deck" id="deck">
 
@@ -258,7 +258,7 @@
               </article>
 
               <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">03 · Discovery</span><h2>The model is powerful, constrained, and temporary</h2></div>
+                <div class="slide-head"><span class="slide-kicker">03 · Discovery + artifact</span><h2>The model learns once; the contract carries the result</h2></div>
                 <div class="slide-body">
                   <div class="slide-cols-2">
                     <div>
@@ -270,31 +270,14 @@
                         <li><b>Compile.</b> The recorder turns the successful run into a draft capability, distrusting what the model saw along the way.</li>
                       </ul>
                     </div>
-                    <div class="slide-card dark"><h3>What the genuine run taught the recorder</h3><p>The model read the savings balance cell by its literal currency text. Replaying that would pin the capability to one member. The recorder detects volatile value shapes, strips value-shaped fallbacks, and rewrites the target as a relational descriptor: the Balance column in the row containing SAVINGS. The committed second-tenant evidence only passes because of this.</p><div class="slide-code">[e1] textbox · "Member ID"  ·  frame: main<br>[e2] button  · "Search"<br>model → type(e1, input:memberId)</div></div>
+                    <div class="slide-card dark"><h3>The compiled contract</h3><p>The recorder removes volatile values, hardens semantic locators, parameterizes declared inputs, and produces a typed artifact that a person can review.</p><ul class="slide-list compact"><li><b>Contract.</b> Typed inputs and outputs, sensitivity flags, validation.</li><li><b>Behavior.</b> Ordered steps, fallbacks, checkpoints, outcomes, recovery, and risk.</li><li><b>Lifecycle.</b> Draft → reviewed → approved → agent-invocable tool.</li><li><b>Integrity.</b> Reviewer identity, provenance, policy snapshot, and contract hash.</li></ul><div class="slide-code">Balance cell by literal value<br>→ Balance column in the SAVINGS row</div></div>
                   </div>
+                  <p class="slide-note">The artifact is the handoff between probabilistic learning and deterministic execution.</p>
                 </div>
               </article>
 
               <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">04 · The artifact</span><h2>A contract an agent can call and a person can review</h2></div>
-                <div class="slide-body">
-                  <div class="slide-cols-2">
-                    <div>
-                      <p class="slide-lede">The artifact is the product of discovery and the input to everything else. The Zod schema validates it at runtime; an invalid artifact cannot exist quietly.</p>
-                      <ul class="slide-list">
-                        <li><b>Identity.</b> Stable name, schema version, revision, product, supported surface.</li>
-                        <li><b>Contract.</b> Typed inputs and outputs with sensitivity flags and input validation.</li>
-                        <li><b>Behavior.</b> Ordered discriminated steps, semantic descriptors with ordered fallbacks, a checkpoint for every state-changing step.</li>
-                        <li><b>Honesty.</b> Declared business outcomes, bounded recovery rules, per-step risk, policy snapshot, tenant overlays, provenance, contract hash.</li>
-                      </ul>
-                    </div>
-                    <div class="slide-card"><h3>Lifecycle</h3><div class="slide-pipeline"><span>Discovered</span><i>→</i><span class="warn">Draft</span><i>→</i><span>Reviewed by a person</span><i>→</i><span class="good">Approved</span><i>→</i><span>Invoked by agents</span></div><p style="margin-top:14px">Approval records reviewer identity and recomputes the hash. An unapproved irreversible capability refuses to run: escalation is not a substitute for review. Approved capabilities are exposed to agents as typed tool definitions in the catalog.</p></div>
-                  </div>
-                </div>
-              </article>
-
-              <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">05 · Replay</span><h2>Deterministic means the model has no path back in</h2></div>
+                <div class="slide-head"><span class="slide-kicker">04 · Replay + results</span><h2>Deterministic execution, explicit outcomes</h2></div>
                 <div class="slide-body">
                   <div class="slide-cols-2">
                     <div>
@@ -306,27 +289,14 @@
                         <li><b>Guard rechecked.</b> After every state-changing action, the navigation guard is verified before the executor continues.</li>
                       </ul>
                     </div>
-                    <div class="slide-card"><h3>Why not assisted fallback</h3><p>The brief offers a stretch goal: on replay failure, allow a bounded LLM recovery for one step. It was considered and rejected. The determinism guarantee is the product being sold to a bank; a model with any path back into the decision loop converts a guarantee into a probability. Runtime breakage escalates to a person instead, and the artifact's own bounded recovery rules handle the known interstitials.</p></div>
+                    <div class="slide-card"><h3>Four result types</h3><div class="result-stack"><div class="result-row"><span class="badge success">ok</span><p>Typed outputs returned after the final checkpoint holds.</p></div><div class="result-row"><span class="badge warn">outcome</span><p>A declared business answer such as MEMBER_NOT_FOUND or PERMISSION_DENIED.</p></div><div class="result-row"><span class="badge fail">failed</span><p>Invalid input, policy denial, target drift, timeout, or checkpoint failure.</p></div><div class="result-row"><span class="badge info">escalated</span><p>A person owns a still-live intervention; the run is paused, not dead.</p></div></div></div>
                   </div>
+                  <p class="slide-note">Known interstitials use bounded, artifact-declared recovery. Unknown breakage escalates to a person; replay never asks the model to improvise.</p>
                 </div>
               </article>
 
               <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">06 · Errors</span><h2>Not found is an answer, not a crash</h2></div>
-                <div class="slide-body">
-                  <p class="slide-lede">The result contract has four arms. Conflating a business outcome with a failure is the most common design mistake in this domain, so the taxonomy is the design.</p>
-                  <div class="slide-cols-4">
-                    <div class="slide-card"><span class="badge success">ok</span><p>The final checkpoint holds and every declared output is returned, typed. Sensitive outputs return as value plus hash and masked proof in evidence.</p></div>
-                    <div class="slide-card"><span class="badge warn">outcome</span><p>A declared business answer: MEMBER_NOT_FOUND, NO_SAVINGS_ACCOUNT, PERMISSION_DENIED, SESSION_EXPIRED. The caller branches on a code.</p></div>
-                    <div class="slide-card"><span class="badge fail">failed</span><p>Invalid input, policy denial, target drift, exhausted recovery, checkpoint failure, timeout. Carries step, category, expected versus observed, evidence.</p></div>
-                    <div class="slide-card"><span class="badge info">escalated</span><p>A human owns, or abandoned, a still-live intervention. Non-terminal: the run is paused, not dead, and the linkage is recorded.</p></div>
-                  </div>
-                  <p class="slide-note">Recoveries are explicit artifact data with attempt limits: dismiss a known interstitial, wait out a transient load. Replay never improvises one.</p>
-                </div>
-              </article>
-
-              <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">07 · Escalation</span><h2>Control transfer is a lease, not a notification</h2></div>
+                <div class="slide-head"><span class="slide-kicker">05 · Safety + escalation</span><h2>The runtime enforces policy and single ownership</h2></div>
                 <div class="slide-body">
                   <div class="slide-cols-2">
                     <div>
@@ -355,31 +325,19 @@
                     </div>
                     <div>
                       <ul class="slide-list">
-                        <li><b>Detect and route.</b> An approved irreversible step, or unresolvable runtime breakage, raises an intervention carrying capability, step, location, screenshot, and reason.</li>
-                        <li><b>Same live session.</b> The operator attaches to the same persistent browser context over loopback CDP: cookies, frames, and the prepared form are provably unchanged.</li>
-                        <li><b>Enforced pause.</b> While a human owns the lease, all automation actions throw. Exactly one actor can ever hold the Surface.</li>
-                        <li><b>Verified resume.</b> Human actions are audited without raw typed text; the operator note is never parsed. On release, replay verifies the step's declared checkpoint before continuing.</li>
+                        <li><b>Contain first.</b> Exact-host navigation and the action vocabulary are allowlisted. Redirects, frames, click navigation, and popups fail closed.</li>
+                        <li><b>Transfer the same session.</b> A risky step or unknown breakage raises an intervention with capability, step, location, screenshot, and reason.</li>
+                        <li><b>Enforce one owner.</b> While a person holds the lease, every automation action throws. Cookies, frames, and the prepared form remain unchanged.</li>
+                        <li><b>Resume only after proof.</b> Human actions are audited without raw typed text; replay verifies the declared checkpoint before continuing.</li>
                       </ul>
-                      <p class="slide-note">Production gaps are stated, not hidden: authenticated operator identity, durable ownership with heartbeat, streamed remote access, recovery after worker loss.</p>
+                      <p class="slide-note">Sensitive values register with the redactor before evidence is written. Production gaps remain explicit: authenticated identity, durable leases, streamed access, and worker recovery.</p>
                     </div>
                   </div>
                 </div>
               </article>
 
               <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">08 · Safety</span><h2>The model proposes. The runtime disposes.</h2></div>
-                <div class="slide-body">
-                  <div class="slide-cols-3">
-                    <div class="slide-card"><h3>Containment</h3><p>One policy engine for discovery and replay. Exact-host URL allowlisting with browser-level request interception: redirects, frame navigation, click navigation, and popups are blocked before leaving the allowlist. The action vocabulary itself is allowlisted.</p></div>
-                    <div class="slide-card"><h3>Risk and review</h3><p>Per-step risk is frozen into the reviewable artifact. Draft irreversible capabilities fail closed. Approved irreversible steps follow the configured human policy: the demo routes them through a mandatory intervention.</p></div>
-                    <div class="slide-card"><h3>Data handling</h3><p>Sensitive inputs and outputs register with the redactor before evidence is written. Sensitive currency is recorded as type, hash, and masked proof. Raw HTML, credentials, keys, operator keystrokes, and transcripts are never persisted. A verifier scans committed evidence for known synthetic sensitive values.</p></div>
-                  </div>
-                  <p class="slide-note">Every record in the target is fabricated. No real customer data, credentials, or third-party banking system is touched anywhere in the project.</p>
-                </div>
-              </article>
-
-              <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">09 · Generalization</span><h2>Heterogeneity and hundreds of tenants, by design</h2></div>
+                <div class="slide-head"><span class="slide-kicker">06 · Generalization</span><h2>Heterogeneity and hundreds of tenants, by design</h2></div>
                 <div class="slide-body">
                   <div class="slide-cols-2">
                     <div class="slide-card"><h3>Other surfaces</h3><p>Semantic accessibility descriptors work on conventional pages, framesets, and native desktop accessibility trees. The Surface seam means a desktop implementation through Windows UI Automation or macOS Accessibility supplies observe / resolve / act and nothing above it changes. The target already proves frames and nested tables, not just a clean SPA. Coordinates survive only as discovery evidence.</p></div>
@@ -390,7 +348,7 @@
               </article>
 
               <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">10 · Evidence</span><h2>Every claim has a committed, verified run behind it</h2></div>
+                <div class="slide-head"><span class="slide-kicker">07 · Evidence</span><h2>Every claim has a committed, verified run behind it</h2></div>
                 <div class="slide-body">
                   <p class="slide-lede">The brief asks for one replay that hits an exceptional state. The committed set has eight curated replay cases beside the genuine discovery run, and a verifier script keeps them honest.</p>
                   <div class="slide-chip-grid">
@@ -404,7 +362,7 @@
               </article>
 
               <article class="slide">
-                <div class="slide-head"><span class="slide-kicker">11 · Cuts</span><h2>What was left out, on purpose</h2></div>
+                <div class="slide-head"><span class="slide-kicker">08 · Cuts</span><h2>What was left out, on purpose</h2></div>
                 <div class="slide-body">
                   <div class="slide-cols-2">
                     <div>
@@ -421,20 +379,12 @@
               </article>
 
               <article class="slide">
-                <div class="slide-body slide-title-layout">
-                  <div class="slide-kicker">In one sentence</div>
-                  <h2 class="slide-hero-title">Give agents hands<br><span>that a bank can audit.</span></h2>
-                  <p class="slide-hero-sub">An LLM learns the workflow once, under policy. A person approves the typed contract it produced. From then on, every invocation is deterministic, checkpointed, redacted, escalatable, and provably model-free.</p>
-                  <div class="slide-stat-row"><div class="slide-stat"><b>Guided demo</b><span>goal input and live saved-capability replay</span></div><div class="slide-stat"><b>Proof</b><span>artifact, logs, screenshots</span></div><div class="slide-stat"><b>Human review</b><span>real lease transfer, live</span></div><div class="slide-stat"><b>Design decisions</b><span>architecture and all 18 tradeoffs</span></div></div>
-                </div>
-              </article>
-
-              <article class="slide">
                 <div class="slide-body slide-title-layout thank-you-slide">
-                  <div class="slide-kicker">14 · Close</div>
+                  <div class="slide-kicker">09 · Close</div>
                   <h2 class="slide-hero-title">Thank you.</h2>
-                  <p class="slide-hero-sub">The live demo, approved artifact, design decisions, and verified evidence are available in this Studio. Questions can be answered against the implementation rather than a separate mockup.</p>
+                  <p class="slide-hero-sub">Give agents hands that a bank can audit. The live demo, approved artifact, design decisions, and verified evidence are available in this Studio.</p>
                   <div class="slide-stat-row"><div class="slide-stat"><b>Guided demo</b><span>goal, discovery proof, and live replay</span></div><div class="slide-stat"><b>Proof</b><span>artifact, event stream, and screenshots</span></div><div class="slide-stat"><b>Human review</b><span>enforced control transfer</span></div><div class="slide-stat"><b>Design</b><span>architecture and decision register</span></div></div>
+                  <div class="contact-block"><span class="contact-name">Om Thakur</span><div class="contact-row"><a class="contact-link" href="https://theomthakur.github.io/portfolio" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c3 3.3 3 14.7 0 18M12 3c-3 3.3-3 14.7 0 18"></path></svg><span>Portfolio</span></a><a class="contact-link" href="https://github.com/theomthakur" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .7A11.3 11.3 0 0 0 8.4 22.8c.6.1.8-.3.8-.6v-2.2c-3.4.7-4.1-1.4-4.1-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6A4.7 4.7 0 0 1 5.7 8c-.1-.3-.5-1.6.1-3.3 0 0 1-.3 3.4 1.2a11.7 11.7 0 0 1 6.2 0c2.4-1.5 3.4-1.2 3.4-1.2.6 1.7.2 3 .1 3.3a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3c0 .3.2.7.8.6A11.3 11.3 0 0 0 12 .7Z"></path></svg><span>GitHub</span></a><a class="contact-link" href="https://www.linkedin.com/in/theomthakur/" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.3 7.9H1.8V19h3.5V7.9ZM3.6 2.4a2 2 0 1 0 0 4.1 2 2 0 0 0 0-4.1ZM11 7.9H7.6V19H11v-5.5c0-1.5.3-2.9 2.1-2.9 1.8 0 1.8 1.7 1.8 3V19h3.5v-6.1c0-3- .7-5.3-4.2-5.3-1.7 0-2.8.9-3.3 1.8h-.1V7.9Z"></path></svg><span>LinkedIn</span></a></div></div>
                 </div>
               </article>
 

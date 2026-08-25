@@ -27,7 +27,7 @@ test("Studio starts with pending timeline steps rather than completed checkmarks
 test("Studio design register and presentation stay aligned with committed content", async () => {
   const source = await readFile("public/studio.html", "utf8");
   assert.equal((source.match(/<article class="decision-card">/g) ?? []).length, 18);
-  assert.equal((source.match(/<article class="slide(?: active)?">/g) ?? []).length, 14);
+  assert.equal((source.match(/<article class="slide(?: active)?">/g) ?? []).length, 10);
   assert.match(source, /<b>8<\/b><span>curated replay cases<\/span>/);
   assert.match(source, /id="discovery-goal"/);
   assert.match(source, /id="discovery-member-id"/);
@@ -38,6 +38,9 @@ test("Studio design register and presentation stay aligned with committed conten
   assert.equal((source.match(/data-goal="/g) ?? []).length, 3);
   assert.match(source, /High-level system design/);
   assert.match(source, /Thank you\./);
+  assert.match(source, /https:\/\/theomthakur\.github\.io\/portfolio/);
+  assert.match(source, /https:\/\/github\.com\/theomthakur/);
+  assert.match(source, /https:\/\/www\.linkedin\.com\/in\/theomthakur\//);
   assert.doesNotMatch(source, /seven curated scenarios|Never raw selectors|Every mutation is followed by a checkpoint/);
 });
 

@@ -54,7 +54,7 @@ Recovery is artifact-declared and attempt-limited, such as dismissing a known in
 
 Discovery and replay depend on `Surface`, not Playwright directly. A desktop adapter could implement the same observe, resolve, and act operations through an accessibility API without changing the artifact or executor.
 
-One base artifact can have small reviewed tenant overlays for entry URLs or visible labels. The same capability runs for Riverbend and Summitline even though `Member ID` becomes `Member Number`. A materially different workflow requires a new artifact revision rather than a growing tenant patch.
+One base artifact can have small reviewed tenant overlays for entry URLs or visible labels. The same capability runs for Riverbend and Summitline even though `Member ID` becomes `Member Number`. Checkpoint failures and repeated use of weaker locator fallbacks are drift signals scoped by product, tenant, and version. A reviewed label or route difference becomes an overlay; a materially different workflow requires a new artifact revision rather than a growing tenant patch.
 
 The submission proves the abstraction locally. It does not build distributed multi-tenant infrastructure.
 

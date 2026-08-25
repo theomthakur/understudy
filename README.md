@@ -23,6 +23,8 @@ Useful direct links:
 
 The Studio uses committed evidence and requires no model credentials. It does not present playback as a new model run.
 
+For the exact six-minute click sequence and expected results, see [`DEMO.md`](DEMO.md).
+
 ## Run discovery and replay
 
 Start the synthetic target in terminal 1:

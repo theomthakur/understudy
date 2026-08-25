@@ -303,6 +303,22 @@ a { color: inherit; }
 .workflow-register-note { margin: 12px 0 0; padding: 11px 13px; border: 1px solid #dbe5f8; border-radius: 10px; background: var(--blue-soft); color: #405477; font-size: 10px; line-height: 1.55; }
 .workflow-register-note strong { color: var(--blue-deep); }
 
+.demo-runbook { overflow: hidden; }
+.demo-runbook summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 17px 19px; cursor: pointer; list-style: none; }
+.demo-runbook summary::-webkit-details-marker { display: none; }
+.demo-runbook summary strong { display: block; font-size: 12.5px; }
+.demo-runbook summary small { display: block; margin-top: 3px; color: var(--muted); font-size: 9.5px; }
+.demo-runbook-toggle { color: var(--blue); font-size: 9.5px; font-weight: 750; }
+.demo-runbook[open] .demo-runbook-toggle { font-size: 0; }
+.demo-runbook[open] .demo-runbook-toggle::after { content: "Close guide"; font-size: 9.5px; }
+.demo-runbook-body { padding: 0 19px 18px; border-top: 1px solid var(--line); }
+.demo-runbook-list { margin: 0; padding: 0; list-style: none; }
+.demo-runbook-list li { display: grid; grid-template-columns: 31px minmax(0,1fr) auto; align-items: center; gap: 11px; padding: 13px 0; border-bottom: 1px solid #edf0f5; }
+.demo-runbook-list li > span { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 9px; background: var(--blue-soft); color: var(--blue); font-size: 9px; font-weight: 800; }
+.demo-runbook-list strong { display: block; font-size: 10.5px; }
+.demo-runbook-list p { margin: 3px 0 0; color: var(--muted); font-size: 9.5px; line-height: 1.45; }
+.demo-runbook-foot { margin: 14px 0 0; padding: 10px 12px; border-radius: 9px; background: var(--yellow-soft); color: #72531c; font-size: 9.5px; line-height: 1.5; }
+
 .two-column { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(300px,.72fr); gap: 16px; }
 .panel { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: white; box-shadow: 0 10px 35px rgba(26,43,80,.045); }
 .panel-head { display: flex; min-height: 55px; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 17px; border-bottom: 1px solid var(--line); }
@@ -720,6 +736,8 @@ a { color: inherit; }
   .flow-grid, .metric-grid, .contract-grid, .evidence-grid, .workflow-register-grid { grid-template-columns: 1fr; }
   .flow-step::after { display: none; }
   .studio-intro, .view-heading, .section-head { align-items: flex-start; flex-direction: column; }
+  .demo-runbook-list li { grid-template-columns: 31px minmax(0,1fr); }
+  .demo-runbook-list .text-link { grid-column: 2; justify-self: start; padding: 0; }
   .surface-toolbar { grid-template-columns: auto 1fr; }
   .surface-owner { display: none; }
   .legacy-frame { height: 390px; }

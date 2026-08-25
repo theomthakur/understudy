@@ -68,6 +68,9 @@ test("Studio design register and presentation stay aligned with committed conten
   assert.match(source, /Capability ID<\/span><code>member\.read_savings_balance/);
   assert.match(source, /Hand-authored safety fixture/);
   assert.match(source, /not a fourth execution workflow/);
+  assert.match(source, /Six-minute demo checklist/);
+  assert.equal((source.match(/class="demo-runbook-list"/g) ?? []).length, 1);
+  assert.equal((source.match(/<li><span>0[1-6]<\/span>/g) ?? []).length, 6);
   assert.match(source, /Play guided discovery/);
   assert.match(source, /Show and copy genuine command/);
   assert.match(source, /id="discovery-command-panel"/);
@@ -96,6 +99,8 @@ test("Studio presentation uses one fixed frame and a synchronized fullscreen mod
   assert.match(script, /document\.addEventListener\("fullscreenchange", syncFullscreenState\)/);
   assert.match(script, /event\.key === " "/);
   assert.match(script, /event\.key === "f" \|\| event\.key === "F"/);
+  assert.match(script, /Replaying approved safe steps/);
+  assert.match(script, /Approaching irreversible gate/);
 });
 
 test("Studio supports direct section links and labelled compact navigation", async () => {

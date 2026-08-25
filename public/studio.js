@@ -570,6 +570,16 @@ $("#create-handoff").addEventListener("click", async () => {
   const button = $("#create-handoff");
   button.disabled = true;
   button.textContent = "Opening guarded session…";
+  const preparationLabels = [
+    "Opening guarded session…",
+    "Replaying approved safe steps…",
+    "Approaching irreversible gate…",
+  ];
+  let preparationIndex = 0;
+  const preparationTimer = setInterval(() => {
+    preparationIndex = Math.min(preparationIndex + 1, preparationLabels.length - 1);
+    button.textContent = preparationLabels[preparationIndex];
+  }, 2600);
   try {
     const response = await fetch("/api/studio/interventions/demo", { method: "POST" });
     const data = await response.json();
@@ -590,6 +600,7 @@ $("#create-handoff").addEventListener("click", async () => {
   } catch (error) {
     notify("Could not create intervention", error.message);
   } finally {
+    clearInterval(preparationTimer);
     button.disabled = false;
     button.textContent = "Start safety demo";
   }

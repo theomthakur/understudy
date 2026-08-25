@@ -82,7 +82,14 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
           resultPath: string;
         }>;
       };
-      const catalog = new CapabilityCatalog(resolve("capabilities")).load().toToolDefinitions();
+      const capabilityCatalog = new CapabilityCatalog(resolve("capabilities")).load();
+      const catalog = capabilityCatalog.toToolDefinitions().map((tool) => {
+        const artifact = capabilityCatalog.get(tool.name);
+        const source = artifact?.provenance.model?.startsWith("none")
+          ? "Hand-authored safety fixture"
+          : "Genuine LLM discovery";
+        return { ...tool, x_understudy: { ...tool.x_understudy, source } };
+      });
       const targetReachable = await fetch(targetProxyOrigin, { signal: AbortSignal.timeout(1_500) })
         .then((response) => response.ok)
         .catch(() => false);

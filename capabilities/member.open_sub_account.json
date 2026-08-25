@@ -296,10 +296,10 @@
   },
   "provenance": {
     "recordedAt": "2026-08-13T05:14:04.338Z",
-    "goal": "Look up a member and read their savings balance",
-    "model": "none \u2014 authored by hand so replay can be demonstrated without credentials",
+    "goal": "Look up the member with the given member ID, open their profile, and begin opening a new sub-account. Stop when you reach the confirmation screen.",
+    "model": "none - authored by hand to demonstrate the guarded replay and human handoff path",
     "discoveryRunId": "hand-authored-pending-discovery",
     "stepCount": 6
   },
-  "artifactHash": "6b33772663049f64324d67965ad3315baf608ca62a027689c05d0a0c46ee2549"
+  "artifactHash": "ae0e32c1e856775db77eabfea478b32d722374afcbade9f50652da20e7843e51"
 }

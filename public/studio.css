@@ -293,6 +293,16 @@ a { color: inherit; }
 .metric-value { margin-top: 16px; font-size: 27px; font-weight: 770; letter-spacing: -.04em; }
 .metric-detail { margin-top: 3px; color: var(--muted); font-size: 10px; }
 
+.workflow-register-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+.workflow-register-card { display: flex; min-height: 190px; flex-direction: column; padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: white; box-shadow: 0 8px 25px rgba(22,37,75,.035); }
+.workflow-register-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.workflow-register-number { color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .09em; }
+.workflow-register-card h3 { margin: 18px 0 7px; font-size: 13px; }
+.workflow-register-card p { margin: 0 0 14px; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
+.workflow-register-card .text-link { align-self: flex-start; margin-top: auto; padding: 0; }
+.workflow-register-note { margin: 12px 0 0; padding: 11px 13px; border: 1px solid #dbe5f8; border-radius: 10px; background: var(--blue-soft); color: #405477; font-size: 10px; line-height: 1.55; }
+.workflow-register-note strong { color: var(--blue-deep); }
+
 .two-column { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(300px,.72fr); gap: 16px; }
 .panel { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: white; box-shadow: 0 10px 35px rgba(26,43,80,.045); }
 .panel-head { display: flex; min-height: 55px; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 17px; border-bottom: 1px solid var(--line); }
@@ -417,7 +427,10 @@ a { color: inherit; }
 .cap-hero { padding: 23px; }
 .cap-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .cap-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 13px; background: var(--blue-soft); color: var(--blue); font-size: 18px; font-weight: 800; }
-.cap-name { margin: 11px 0 4px; font-size: 20px; letter-spacing: -.035em; }
+.cap-type-label { margin-top: 13px; color: var(--muted); font-size: 8.5px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
+.cap-human-title { margin: 4px 0 8px; font-size: 20px; letter-spacing: -.035em; }
+.cap-machine-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; color: var(--muted); font-size: 9px; }
+.cap-machine-row code { padding: 4px 7px; border-radius: 6px; background: var(--blue-soft); color: var(--blue); font-size: 9px; font-weight: 720; }
 .cap-description { max-width: 650px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .contract-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
 .contract-card { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcfe; }
@@ -470,6 +483,7 @@ a { color: inherit; }
 .catalog-item-head code { color: var(--blue); font-size: 9.5px; font-weight: 720; }
 .catalog-item p { margin: 7px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
 .catalog-signature { margin-top: 8px; padding: 7px 9px; border-radius: 7px; background: #f5f7fb; color: #58647a; font: 8px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.catalog-provenance { margin-top: 7px; color: var(--muted); font-size: 8.5px; font-weight: 680; }
 .inventory-loading { padding: 22px 0; color: var(--muted); font-size: 9.5px; text-align: center; }
 
 /* Interventions */
@@ -679,6 +693,7 @@ a { color: inherit; }
   .flow-grid { grid-template-columns: repeat(2,1fr); }
   .flow-step:nth-child(2)::after { display: none; }
   .metric-grid { grid-template-columns: repeat(2,1fr); }
+  .workflow-register-grid { grid-template-columns: 1fr; }
   .two-column, .capability-layout, .handoff-hero, .proof-inventory { grid-template-columns: 1fr; }
   .studio-grid { grid-template-columns: 1fr; }
   .legacy-frame { height: 470px; }
@@ -702,7 +717,7 @@ a { color: inherit; }
   .hero h1 { font-size: 35px; }
   .hero-proof { padding: 0 20px 20px; }
   .proof-card { display: block; }
-  .flow-grid, .metric-grid, .contract-grid, .evidence-grid { grid-template-columns: 1fr; }
+  .flow-grid, .metric-grid, .contract-grid, .evidence-grid, .workflow-register-grid { grid-template-columns: 1fr; }
   .flow-step::after { display: none; }
   .studio-intro, .view-heading, .section-head { align-items: flex-start; flex-direction: column; }
   .surface-toolbar { grid-template-columns: auto 1fr; }

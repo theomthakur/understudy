@@ -170,7 +170,7 @@ const GOAL_PRESETS = {
     contractOutput: "none declared",
     risk: "Irreversible",
     proof: false,
-    note: "This one reaches an irreversible step, so policy stops it for a person. That is the handoff shown on the <b>Human review</b> tab.",
+    note: "This is a runnable discovery example without committed model proof. The <b>Human review</b> tab uses a separate hand-authored, approved fixture to demonstrate the same irreversible-action gate.",
   },
 };
 let activePreset = "balance";
@@ -524,7 +524,10 @@ function renderCatalog(tools) {
     const inputs = Object.keys(tool.input_schema?.properties || {}).join(", ") || "none";
     const outputs = tool.x_understudy.outputs.map((output) => `${output.name}: ${output.type}`).join(", ") || "none";
     signature.textContent = `inputs: ${inputs} · outputs: ${outputs} · revision ${tool.x_understudy.revision}`;
-    item.append(head, description, signature);
+    const provenance = document.createElement("div");
+    provenance.className = "catalog-provenance";
+    provenance.textContent = tool.x_understudy.source;
+    item.append(head, description, signature, provenance);
     container.append(item);
   }
   $("#catalog-count").textContent = `${tools.length} approved`;

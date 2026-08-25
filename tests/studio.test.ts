@@ -31,13 +31,20 @@ test("Studio summary exposes the live replay guarantee, catalog, and full eviden
     assert.equal(response.status, 200);
     const summary = await response.json() as {
       modelInvocationsOnReplay: number;
-      catalog: unknown[];
+      catalog: Array<{ name: string; x_understudy: { source: string } }>;
       evidenceMatrix: unknown[];
       unresolvedHandoffs: number;
       targetReachable: boolean;
     };
     assert.equal(summary.modelInvocationsOnReplay, 0);
     assert.equal(summary.catalog.length, 2);
+    assert.deepEqual(
+      Object.fromEntries(summary.catalog.map((tool) => [tool.name, tool.x_understudy.source])),
+      {
+        "member.open_sub_account": "Hand-authored safety fixture",
+        "member.read_savings_balance": "Genuine LLM discovery",
+      },
+    );
     assert.equal(summary.evidenceMatrix.length, 8);
     assert.equal(summary.unresolvedHandoffs, 0);
     assert.equal(typeof summary.targetReachable, "boolean");
@@ -57,6 +64,10 @@ test("Studio design register and presentation stay aligned with committed conten
   assert.match(source, /id="runtime-model-count"/);
   assert.match(source, /id="evidence-matrix"/);
   assert.match(source, /id="tool-catalog"/);
+  assert.match(source, /What is implemented/);
+  assert.match(source, /Capability ID<\/span><code>member\.read_savings_balance/);
+  assert.match(source, /Hand-authored safety fixture/);
+  assert.match(source, /not a fourth execution workflow/);
   assert.match(source, /Play guided discovery/);
   assert.match(source, /Show and copy genuine command/);
   assert.match(source, /id="discovery-command-panel"/);

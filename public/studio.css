@@ -578,6 +578,13 @@ a { color: inherit; }
 .deck-dot:hover { background: #9fb0cf; }
 .deck-dot.active { background: var(--blue); transform: scale(1.3); }
 
+.goal-hint { margin: 0 0 8px; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.goal-examples-row { display: flex; flex-wrap: wrap; gap: 6px; }
+#goal-examples { margin-bottom: 9px; }
+#goal-examples .quick-value.active { border-color: #b9c8e9; background: var(--blue-soft); color: var(--blue); font-weight: 700; }
+.goal-example-note { margin-top: 8px; padding: 9px 10px; border-radius: 9px; background: var(--blue-soft); color: #2c4a86; font-size: 10px; line-height: 1.55; }
+.goal-example-note b { color: var(--blue); }
+
 .mobile-nav { display: none; }
 
 @media (max-width: 1480px) {

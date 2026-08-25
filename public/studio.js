@@ -56,7 +56,7 @@ function notify(headline, detail) {
   notify.timer = setTimeout(() => toast.classList.remove("visible"), 4200);
 }
 
-document.querySelectorAll(".quick-value").forEach((button) => {
+document.querySelectorAll(".quick-value[data-value]").forEach((button) => {
   button.addEventListener("click", () => {
     memberInput.value = button.dataset.value;
     memberInput.focus();
@@ -76,6 +76,71 @@ const discoverySteps = [
   ["Model submits search", "The runtime, not the model, operates the live control"],
   ["Compile capability", "Recorder removes volatile data and adds typed contracts"],
 ];
+
+/**
+ * Each preset is a complete discovery contract, not just prose. The copied
+ * command has to match the goal text, so name, inputs and outputs travel
+ * together with it. Only the balance goal has a committed proof run; the
+ * other two are honest, runnable goals against the same target that a
+ * reviewer has not paid tokens to execute.
+ */
+const GOAL_PRESETS = {
+  balance: {
+    label: "Read a savings balance",
+    goal: "Look up the member with the given member ID, open their profile, and read the current balance of their SAVINGS account. Capture it as the output 'savingsBalance'.",
+    name: "member.read_savings_balance_v2",
+    input: "memberId:string:sensitive=^\\d{3,10}$",
+    value: "memberId=12345",
+    output: "savingsBalance:currency:sensitive",
+    contractOutput: "savingsBalance: sensitive currency",
+    risk: "Safe",
+    proof: true,
+    note: "Committed proof exists for this goal. Open <b>Inspect committed discovery proof</b> to see the genuine model run that produced the saved capability.",
+  },
+  status: {
+    label: "Check account status",
+    goal: "Look up the member with the given member ID, open their profile, and read the status of their CHECKING account. Capture it as the output 'accountStatus'.",
+    name: "member.read_checking_status_v1",
+    input: "memberId:string:sensitive=^\\d{3,10}$",
+    value: "memberId=12345",
+    output: "accountStatus:string",
+    contractOutput: "accountStatus: string",
+    risk: "Safe",
+    proof: false,
+    note: "A second read-only goal against the same screens. No committed run for this one, so the command is provided rather than a saved artifact.",
+  },
+  subaccount: {
+    label: "Open a sub-account",
+    goal: "Look up the member with the given member ID, open their profile, start a new sub-account for them, and continue to the confirmation screen without submitting it.",
+    name: "member.open_sub_account_v2",
+    input: "memberId:string:sensitive=^\\d{3,10}$",
+    value: "memberId=12345",
+    output: "",
+    contractOutput: "none declared",
+    risk: "Irreversible",
+    proof: false,
+    note: "This one reaches an irreversible step, so policy stops it for a person. That is the handoff shown on the <b>Human review</b> tab.",
+  },
+};
+let activePreset = "balance";
+
+function applyPreset(key) {
+  const preset = GOAL_PRESETS[key];
+  if (!preset) return;
+  activePreset = key;
+  discoveryGoal.value = preset.goal;
+  $("#goal-example-note").innerHTML = preset.note;
+  document.querySelectorAll("#goal-examples .quick-value").forEach((b) => b.classList.toggle("active", b.dataset.goal === key));
+  $("#contract-output").textContent = preset.contractOutput;
+  const risk = $("#contract-risk");
+  risk.textContent = preset.risk;
+  risk.className = preset.risk === "Safe" ? "badge success" : "badge warn";
+  inspectDiscovery.hidden = !preset.proof || state.mode === "replay";
+}
+
+document.querySelectorAll("#goal-examples .quick-value").forEach((button) => {
+  button.addEventListener("click", () => applyPreset(button.dataset.goal));
+});
 
 function renderTimeline(steps, completed = -1, outcomeIndex = -1, trace = []) {
   timeline.innerHTML = steps.map(([name, description], index) => {
@@ -102,10 +167,13 @@ function setMode(mode) {
   $("#mode-description").textContent = mode === "replay" ? "New input · fixed steps · no model decisions" : "Natural language in · reviewed capability out";
   $("#goal-label").textContent = mode === "replay" ? "Capability" : "Natural-language goal";
   discoveryGoal.hidden = mode === "replay";
+  $("#goal-examples").hidden = mode === "replay";
+  $("#goal-hint").hidden = mode === "replay";
+  $("#goal-example-note").hidden = mode === "replay";
   capabilityBox.hidden = mode !== "replay";
   $("#parameter-field").hidden = mode !== "replay";
   runButton.textContent = mode === "replay" ? "Run deterministic replay →" : "Copy live discovery command →";
-  inspectDiscovery.hidden = mode === "replay";
+  inspectDiscovery.hidden = mode === "replay" || !(GOAL_PRESETS[activePreset] ?? {}).proof;
   $("#model-zero").hidden = mode !== "replay";
   const note = $("#mode-note");
   note.classList.toggle("discovery-note", mode === "discovery");
@@ -136,8 +204,10 @@ async function runReplay() {
       discoveryGoal.focus();
       return;
     }
+    const preset = GOAL_PRESETS[activePreset] ?? GOAL_PRESETS.balance;
     const quotedGoal = `'${goal.replaceAll("'", `'\"'\"'`)}'`;
-    const command = `npm run discover -- \\\n  --goal ${quotedGoal} \\\n  --name member.read_savings_balance_v2 \\\n  --input 'memberId:string:sensitive=^\\d{3,10}$' \\\n  --value memberId=12345 \\\n  --output savingsBalance:currency:sensitive \\\n  --headed`;
+    const outputLine = preset.output ? `\\\n  --output ${preset.output}` : "";
+    const command = `npm run discover -- \\\n  --goal ${quotedGoal} \\\n  --name ${preset.name} \\\n  --input '${preset.input}' \\\n  --value ${preset.value}${outputLine} \\\n  --headed`;
     await copyText(command);
     notify("Live discovery command copied", "Run it from the repository after configuring a supported model provider.");
     return;

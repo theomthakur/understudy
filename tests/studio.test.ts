@@ -24,6 +24,26 @@ test("Studio starts with pending timeline steps rather than completed checkmarks
   assert.match(source, /Illustrated preview/);
 });
 
+test("Studio summary exposes the live replay guarantee, catalog, and full evidence matrix", async () => {
+  const studio = await startStudioServer(0, false);
+  try {
+    const response = await fetch(`${studio.origin}/api/studio/summary`);
+    assert.equal(response.status, 200);
+    const summary = await response.json() as {
+      modelInvocationsOnReplay: number;
+      catalog: unknown[];
+      evidenceMatrix: unknown[];
+      unresolvedHandoffs: number;
+    };
+    assert.equal(summary.modelInvocationsOnReplay, 0);
+    assert.equal(summary.catalog.length, 2);
+    assert.equal(summary.evidenceMatrix.length, 8);
+    assert.equal(summary.unresolvedHandoffs, 0);
+  } finally {
+    await studio.close();
+  }
+});
+
 test("Studio design register and presentation stay aligned with committed content", async () => {
   const source = await readFile("public/studio.html", "utf8");
   assert.equal((source.match(/<article class="decision-card">/g) ?? []).length, 18);
@@ -31,6 +51,10 @@ test("Studio design register and presentation stay aligned with committed conten
   assert.match(source, /<b>8<\/b><span>curated replay cases<\/span>/);
   assert.match(source, /id="discovery-goal"/);
   assert.match(source, /id="discovery-member-id"/);
+  assert.match(source, /id="tenant-id"/);
+  assert.match(source, /id="runtime-model-count"/);
+  assert.match(source, /id="evidence-matrix"/);
+  assert.match(source, /id="tool-catalog"/);
   assert.match(source, /Play guided discovery/);
   assert.match(source, /Show and copy genuine command/);
   assert.match(source, /id="discovery-command-panel"/);
@@ -65,6 +89,9 @@ test("Studio supports direct section links and labelled compact navigation", asy
   const script = await readFile("public/studio.js", "utf8");
   assert.match(script, /const initialView = location\.hash\.replace\("#", ""\)/);
   assert.match(script, /window\.addEventListener\("hashchange"/);
+  assert.match(script, /JSON\.stringify\(\{ memberId, tenantId \}\)/);
+  assert.match(script, /renderEvidenceMatrix\(data\.evidenceMatrix\)/);
+  assert.match(script, /renderCatalog\(data\.catalog\)/);
 
   const html = await readFile("public/studio.html", "utf8");
   const mobileNav = html.match(/<nav class="mobile-nav"[\s\S]*?<\/nav>/)?.[0] ?? "";

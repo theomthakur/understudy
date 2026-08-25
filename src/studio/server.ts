@@ -12,6 +12,7 @@ import { EvidenceLog, newRunId } from "../evidence/logger.js";
 import { EscalationBroker } from "../escalation/escalation.js";
 import { startTargetServer, type TargetServer } from "../../target-app/server.js";
 import type { HumanAction } from "../surface/surface.js";
+import { CapabilityCatalog } from "../catalog/catalog.js";
 
 const STUDIO_PORT = Number(process.env.PORT ?? process.env.STUDIO_PORT ?? 4317);
 const TARGET_PORT = Number(process.env.TARGET_PORT ?? 4471);
@@ -66,10 +67,22 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
   app.get("/api/studio/summary", async (_req, res) => {
     try {
       const artifact = await loadArtifact();
-      const [capabilityFiles, evidenceEntries] = await Promise.all([
+      const [capabilityFiles, evidenceEntries, evidenceManifestRaw] = await Promise.all([
         readdir(resolve("capabilities"), { withFileTypes: true }),
         readdir(resolve("evidence/curated"), { withFileTypes: true }),
+        readFile(resolve("evidence/curated/manifest.json"), "utf8"),
       ]);
+      const evidenceManifest = JSON.parse(evidenceManifestRaw) as {
+        cases?: Array<{
+          label: string;
+          capability: string;
+          expectedStatus: string;
+          expectedCode?: string;
+          expectedFailure?: string;
+          resultPath: string;
+        }>;
+      };
+      const catalog = new CapabilityCatalog(resolve("capabilities")).load().toToolDefinitions();
       res.json({
         artifact,
         environment: "synthetic",
@@ -77,7 +90,10 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
         modelInvocationsOnReplay: 0,
         capabilities: capabilityFiles.filter((entry) => entry.isFile() && entry.name.endsWith(".json")).length,
         evidenceCases: evidenceEntries.filter((entry) => entry.isDirectory()).length,
+        evidenceMatrix: evidenceManifest.cases ?? [],
+        catalog,
         knownOutcomes: artifact.businessOutcomes.length,
+        unresolvedHandoffs: liveIntervention?.broker.list().filter((item) => item.state !== "released" && item.state !== "abandoned").length ?? 0,
       });
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Could not load capability" });

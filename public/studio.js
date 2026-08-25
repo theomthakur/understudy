@@ -21,6 +21,7 @@ const discoveryMemberInput = $("#discovery-member-id");
 const discoveryCommandPanel = $("#discovery-command-panel");
 const discoveryCommandPreview = $("#discovery-command-preview");
 const memberInput = $("#member-id");
+const tenantSelect = $("#tenant-id");
 const timeline = $("#timeline");
 const output = $("#run-output");
 const surfaceAddress = $("#surface-address");
@@ -68,6 +69,12 @@ document.querySelectorAll(".quick-value[data-value]").forEach((button) => {
     memberInput.value = button.dataset.value;
     memberInput.focus();
   });
+});
+
+tenantSelect.addEventListener("change", () => {
+  if (state.mode !== "replay") return;
+  iframe.src = targetUrl(memberInput.value || "22871");
+  surfaceAddress.textContent = targetUrl(memberInput.value || "22871").replace(memberInput.value, "[redacted]");
 });
 
 const replaySteps = [
@@ -207,8 +214,8 @@ function renderTimeline(steps, completed = -1, outcomeIndex = -1, trace = []) {
   }).join("");
 }
 
-function targetUrl(memberId) {
-  return `${state.targetOrigin}/workspace?memberId=${encodeURIComponent(memberId)}&tenant=riverbend`;
+function targetUrl(memberId, tenantId = tenantSelect?.value) {
+  return `${state.targetOrigin}/workspace?memberId=${encodeURIComponent(memberId)}&tenant=${tenantId || "riverbend"}`;
 }
 
 function setMode(mode) {
@@ -225,6 +232,7 @@ function setMode(mode) {
   $("#discovery-parameter-field").hidden = mode === "replay";
   capabilityBox.hidden = mode !== "replay";
   $("#parameter-field").hidden = mode !== "replay";
+  $("#tenant-field").hidden = mode !== "replay";
   runButton.textContent = mode === "replay" ? "Run deterministic replay →" : "Play guided discovery →";
   copyDiscovery.hidden = mode === "replay";
   discoveryCommandPanel.hidden = true;
@@ -261,6 +269,7 @@ async function runReplay() {
   }
   if (state.running) return;
   const memberId = memberInput.value.trim();
+  const tenantId = tenantSelect.value || undefined;
   if (!/^\d{3,10}$/.test(memberId)) {
     notify("Check the member number", "Use one of the synthetic numeric scenarios shown below the field.");
     memberInput.focus();
@@ -277,25 +286,28 @@ async function runReplay() {
     const response = await fetch("/api/studio/replay", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ memberId }),
+      body: JSON.stringify({ memberId, tenantId }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Replay could not start");
     const result = data.result;
+    $("#runtime-model-count").textContent = String(data.modelInvocations);
+    $("#runtime-model-detail").textContent = "model decisions in the last deterministic replay";
+    $("#model-zero").querySelector("b").textContent = String(data.modelInvocations);
     if (result.status === "ok") {
       renderTimeline(replaySteps, replaySteps.length, -1, result.trace);
       const balance = result.outputs.savingsBalance;
       output.className = "output-card";
       output.innerHTML = `<div class="output-label">Success · typed output</div><div class="output-value">${balance.display}</div><div class="output-sub">${balance.currency} · savingsBalance · ${result.durationMs}ms</div>`;
-      iframe.src = targetUrl(memberId);
-      surfaceAddress.textContent = targetUrl(memberId).replace(memberId, "[redacted]");
+      iframe.src = targetUrl(memberId, tenantId);
+      surfaceAddress.textContent = targetUrl(memberId, tenantId).replace(memberId, "[redacted]");
       notify("Replay completed", `The capability returned ${balance.display} with zero model calls.`);
     } else if (result.status === "outcome") {
       const stopped = Math.max(1, result.trace.length);
       renderTimeline(replaySteps, stopped, Math.min(stopped, replaySteps.length - 1), result.trace);
       output.className = "output-card outcome";
       output.innerHTML = `<div class="output-label">Known business outcome</div><div class="output-value">${result.code.replaceAll("_", " ")}</div><div class="output-sub">Declared result contract · not an automation crash</div>`;
-      iframe.src = result.code === "NO_SAVINGS_ACCOUNT" ? targetUrl(memberId) : `${state.targetOrigin}/members/lookup?memberId=${encodeURIComponent(memberId)}`;
+      iframe.src = result.code === "NO_SAVINGS_ACCOUNT" ? targetUrl(memberId, tenantId) : `${state.targetOrigin}/members/lookup?memberId=${encodeURIComponent(memberId)}&tenant=${tenantId || "riverbend"}`;
       surfaceAddress.textContent = `${state.targetOrigin}/…?memberId=[redacted]`;
       notify("Business outcome detected", result.description);
     } else {
@@ -459,11 +471,70 @@ function syntaxHighlight(value) {
   });
 }
 
+function renderEvidenceMatrix(cases) {
+  const container = $("#evidence-matrix");
+  container.replaceChildren();
+  for (const item of cases) {
+    const row = document.createElement("div");
+    row.className = "coverage-row";
+
+    const copy = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = item.label.replace(/^replay-/, "").replaceAll("-", " ");
+    const detail = document.createElement("span");
+    detail.textContent = `${item.capability} · ${item.expectedCode || item.expectedFailure || item.expectedStatus}`;
+    copy.append(name, detail);
+
+    const status = document.createElement("span");
+    status.className = `badge ${item.expectedStatus === "ok" ? "success" : item.expectedStatus === "outcome" ? "warn" : "fail"}`;
+    status.textContent = item.expectedStatus;
+
+    const link = document.createElement("a");
+    link.className = "coverage-link";
+    link.href = `/${item.resultPath}`;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = "result ↗";
+    row.append(copy, status, link);
+    container.append(row);
+  }
+  $("#matrix-count").textContent = `${cases.length} verified`;
+}
+
+function renderCatalog(tools) {
+  const container = $("#tool-catalog");
+  container.replaceChildren();
+  for (const tool of tools) {
+    const item = document.createElement("article");
+    item.className = "catalog-item";
+
+    const head = document.createElement("div");
+    head.className = "catalog-item-head";
+    const name = document.createElement("code");
+    name.textContent = tool.name;
+    const risk = document.createElement("span");
+    risk.className = `badge ${tool.x_understudy.maxRisk === "irreversible" ? "warn" : "success"}`;
+    risk.textContent = tool.x_understudy.maxRisk;
+    head.append(name, risk);
+
+    const description = document.createElement("p");
+    description.textContent = tool.description;
+    const signature = document.createElement("div");
+    signature.className = "catalog-signature";
+    const inputs = Object.keys(tool.input_schema?.properties || {}).join(", ") || "none";
+    const outputs = tool.x_understudy.outputs.map((output) => `${output.name}: ${output.type}`).join(", ") || "none";
+    signature.textContent = `inputs: ${inputs} · outputs: ${outputs} · revision ${tool.x_understudy.revision}`;
+    item.append(head, description, signature);
+    container.append(item);
+  }
+  $("#catalog-count").textContent = `${tools.length} approved`;
+}
+
 async function loadStudioData() {
   try {
     const response = await fetch("/api/studio/summary");
     const data = await response.json();
-    if (!response.ok) return;
+    if (!response.ok) throw new Error(data.error || "Studio summary could not be loaded");
     state.targetOrigin = data.targetOrigin;
     $("#artifact-code").innerHTML = syntaxHighlight(data.artifact);
     $("#artifact-created").textContent = new Date(data.artifact.provenance.recordedAt).toLocaleString();
@@ -472,9 +543,19 @@ async function loadStudioData() {
     $("#capability-count").textContent = String(data.capabilities);
     $("#evidence-count").textContent = `${data.evidenceCases} / ${data.evidenceCases}`;
     $("#outcome-count").textContent = String(data.knownOutcomes);
+    $("#handoff-count").textContent = String(data.unresolvedHandoffs);
+    $("#runtime-health").textContent = "System healthy";
+    $("#runtime-model-count").textContent = String(data.modelInvocationsOnReplay);
+    $("#runtime-model-detail").textContent = `model decisions across ${data.evidenceCases} verified replays`;
+    renderEvidenceMatrix(data.evidenceMatrix);
+    renderCatalog(data.catalog);
     iframe.src = targetUrl(memberInput.value);
     surfaceAddress.textContent = targetUrl(memberInput.value).replace(memberInput.value, "[redacted]");
-  } catch { /* Static reviewer copy remains useful while the local engine starts. */ }
+  } catch {
+    $("#runtime-health").textContent = "Status unavailable";
+    $("#runtime-model-count").textContent = "—";
+    $("#runtime-model-detail").textContent = "Studio summary could not be loaded";
+  }
 }
 
 const handoffEmpty = $("#handoff-empty");
@@ -492,6 +573,7 @@ $("#create-handoff").addEventListener("click", async () => {
     if (!response.ok) throw new Error(data.error);
     state.handoff = "open";
     state.interventionId = data.intervention.id;
+    $("#handoff-count").textContent = "1";
     handoffEmpty.style.display = "none";
     handoffCard.classList.add("active");
     ownerLabel.textContent = "Automation paused";
@@ -542,6 +624,7 @@ claimButton.addEventListener("click", async () => {
     notify("Human action recorded", "The click ran in the same paused browser context; raw form values were not logged.");
   } else {
     state.handoff = "resolved";
+    $("#handoff-count").textContent = "0";
     claimButton.textContent = "Intervention resolved";
     claimButton.disabled = true;
     ownerLabel.textContent = "Automation resumed";
@@ -558,6 +641,7 @@ claimButton.addEventListener("click", async () => {
 $("#dismiss-intervention").addEventListener("click", () => {
   state.handoff = "idle";
   state.interventionId = null;
+  $("#handoff-count").textContent = "0";
   handoffCard.classList.remove("active");
   handoffEmpty.style.display = "grid";
   ownerLabel.textContent = "Automation owns session";

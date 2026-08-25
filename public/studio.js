@@ -46,6 +46,7 @@ function showView(name) {
   if (name === "overview") history.replaceState(null, "", location.pathname);
   else history.replaceState(null, "", `#${name}`);
   window.scrollTo({ top: 0, behavior: "auto" });
+  if (name === "presentation") requestAnimationFrame(fitDeck);
 }
 
 navButtons.forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
@@ -563,8 +564,15 @@ $("#dismiss-intervention").addEventListener("click", () => {
 });
 
 const slides = [...document.querySelectorAll(".slide")];
+const deckShell = $("#deck-shell");
+const deck = $("#deck");
 const slideDots = $("#deck-dots");
 const slideCounter = $("#slide-counter");
+const deckPosition = $("#deck-position");
+const deckLabel = $("#deck-label");
+const fullscreenButton = $("#deck-fullscreen");
+const fullscreenLabel = $("#deck-fullscreen-label");
+const DECK_LOGICAL_WIDTH = 1100;
 let slideIndex = 0;
 
 slides.forEach((_, index) => {
@@ -581,21 +589,56 @@ function showSlide(index) {
   slides.forEach((slide, i) => slide.classList.toggle("active", i === slideIndex));
   dots.forEach((dot, i) => dot.classList.toggle("active", i === slideIndex));
   slideCounter.textContent = `${slideIndex + 1} / ${slides.length}`;
+  deckPosition.textContent = `${String(slideIndex + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
+  deckLabel.textContent = slides[slideIndex].querySelector(".slide-kicker")?.textContent.trim()
+    || slides[slideIndex].querySelector("h2")?.textContent.trim()
+    || `Slide ${slideIndex + 1}`;
   $("#slide-prev").disabled = slideIndex === 0;
   $("#slide-next").disabled = slideIndex === slides.length - 1;
+  requestAnimationFrame(fitDeck);
+}
+
+function fitDeck() {
+  if (!deck?.clientWidth) return;
+  deckShell.style.setProperty("--deck-scale", String(deck.clientWidth / DECK_LOGICAL_WIDTH));
+}
+
+function syncFullscreenState() {
+  const active = document.fullscreenElement === deckShell;
+  fullscreenButton.setAttribute("aria-pressed", String(active));
+  fullscreenButton.title = active ? "Exit fullscreen (F)" : "Present fullscreen (F)";
+  fullscreenLabel.textContent = active ? "Exit fullscreen" : "Present fullscreen";
+  fullscreenButton.querySelector(".fullscreen-expand").hidden = active;
+  fullscreenButton.querySelector(".fullscreen-collapse").hidden = !active;
+  requestAnimationFrame(fitDeck);
+}
+
+async function toggleDeckFullscreen() {
+  try {
+    if (document.fullscreenElement === deckShell) await document.exitFullscreen();
+    else if (deckShell.requestFullscreen) await deckShell.requestFullscreen();
+    else notify("Fullscreen unavailable", "This browser does not expose the fullscreen presentation API.");
+  } catch {
+    notify("Fullscreen unavailable", "Use the browser's fullscreen control, then continue with the arrow keys.");
+  }
 }
 
 $("#slide-prev").addEventListener("click", () => showSlide(slideIndex - 1));
 $("#slide-next").addEventListener("click", () => showSlide(slideIndex + 1));
+fullscreenButton.addEventListener("click", toggleDeckFullscreen);
+document.addEventListener("fullscreenchange", syncFullscreenState);
+window.addEventListener("resize", fitDeck);
 document.addEventListener("keydown", (event) => {
   if (state.view !== "presentation") return;
   if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
-  if (event.key === "ArrowRight" || event.key === "PageDown") { event.preventDefault(); showSlide(slideIndex + 1); }
+  if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") { event.preventDefault(); showSlide(slideIndex + 1); }
   if (event.key === "ArrowLeft" || event.key === "PageUp") { event.preventDefault(); showSlide(slideIndex - 1); }
   if (event.key === "Home") { event.preventDefault(); showSlide(0); }
   if (event.key === "End") { event.preventDefault(); showSlide(slides.length - 1); }
+  if (event.key === "f" || event.key === "F") { event.preventDefault(); toggleDeckFullscreen(); }
 });
 showSlide(0);
+syncFullscreenState();
 
 const initialView = location.hash.replace("#", "");
 if (pageMeta[initialView] && initialView !== "overview") showView(initialView);

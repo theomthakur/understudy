@@ -174,8 +174,9 @@
 
         <section class="view" data-name="presentation">
           <div class="view-heading"><div><h1>Presentation</h1><p>The whole submission in ten focused slides. Use the arrow keys or the controls below; every claim on a slide is backed by a runnable path elsewhere in this Studio.</p></div><span class="status-pill"><b id="slide-counter">1 / 10</b> · arrow keys work</span></div>
-          <div class="deck-shell">
-            <div class="deck" id="deck">
+          <div class="deck-shell" id="deck-shell">
+            <div class="deck-toolbar"><div class="deck-presenter-meta"><span class="deck-position" id="deck-position">01 / 10</span><span id="deck-label">Candidate submission</span></div><button class="button ghost deck-fullscreen" id="deck-fullscreen" type="button" title="Present fullscreen (F)" aria-pressed="false"><svg class="fullscreen-expand" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg><svg class="fullscreen-collapse" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"></path></svg><span id="deck-fullscreen-label">Present fullscreen</span></button></div>
+            <div class="deck" id="deck" aria-label="Understudy presentation deck">
 
               <article class="slide active">
                 <div class="slide-body slide-title-layout">
@@ -313,7 +314,7 @@
                           <path d="M 440 42 C 458 70 458 130 442 148"/>
                         </g>
                         <text x="205" y="34" font-size="9" fill="#68738a" text-anchor="middle">risky step or stuck</text>
-                        <text x="378" y="98" font-size="9" fill="#68738a">operator claims</text>
+                        <text x="352" y="98" font-size="9" fill="#68738a" text-anchor="end">operator claims</text>
                         <text x="222" y="144" font-size="9" fill="#68738a" text-anchor="middle">operator releases</text>
                         <text x="95" y="102" font-size="9" fill="#68738a">resume</text>
                         <text x="452" y="98" font-size="9" fill="#68738a" text-anchor="end">abandoned →</text>
@@ -391,6 +392,7 @@
               <div class="deck-dots" id="deck-dots"></div>
               <button class="button blue" id="slide-next">Next →</button>
             </div>
+            <p class="deck-hint"><kbd>←</kbd> <kbd>→</kbd> or <kbd>Space</kbd> to move · <kbd>F</kbd> to present · <kbd>Esc</kbd> to exit</p>
           </div>
         </section>
       </div>

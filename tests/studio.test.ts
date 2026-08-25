@@ -39,11 +39,26 @@ test("Studio design register and presentation stay aligned with committed conten
   assert.match(source, /High-level system design/);
   assert.match(source, /id="presentation-architecture"/);
   assert.match(source, /<use href="#presentation-architecture"><\/use>/);
+  assert.match(source, /id="deck-fullscreen"/);
+  assert.match(source, /aria-label="Understudy presentation deck"/);
   assert.match(source, /Thank you\./);
   assert.match(source, /https:\/\/theomthakur\.github\.io\/portfolio/);
   assert.match(source, /https:\/\/github\.com\/theomthakur/);
   assert.match(source, /https:\/\/www\.linkedin\.com\/in\/theomthakur\//);
   assert.doesNotMatch(source, /seven curated scenarios|Never raw selectors|Every mutation is followed by a checkpoint/);
+});
+
+test("Studio presentation uses one fixed frame and a synchronized fullscreen mode", async () => {
+  const css = await readFile("public/studio.css", "utf8");
+  assert.match(css, /aspect-ratio:\s*1100 \/ 619/);
+  assert.match(css, /\.deck \.slide[^}]*width:\s*1100px[^}]*height:\s*619px/s);
+  assert.match(css, /\.deck-shell:fullscreen/);
+
+  const script = await readFile("public/studio.js", "utf8");
+  assert.match(script, /deckShell\.requestFullscreen/);
+  assert.match(script, /document\.addEventListener\("fullscreenchange", syncFullscreenState\)/);
+  assert.match(script, /event\.key === " "/);
+  assert.match(script, /event\.key === "f" \|\| event\.key === "F"/);
 });
 
 test("Studio supports direct section links and labelled compact navigation", async () => {

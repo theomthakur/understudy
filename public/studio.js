@@ -544,7 +544,7 @@ async function loadStudioData() {
     $("#evidence-count").textContent = `${data.evidenceCases} / ${data.evidenceCases}`;
     $("#outcome-count").textContent = String(data.knownOutcomes);
     $("#handoff-count").textContent = String(data.unresolvedHandoffs);
-    $("#runtime-health").textContent = "System healthy";
+    $("#runtime-health").textContent = data.targetReachable ? "System healthy" : "Engine ready · target unavailable";
     $("#runtime-model-count").textContent = String(data.modelInvocationsOnReplay);
     $("#runtime-model-detail").textContent = `model decisions across ${data.evidenceCases} verified replays`;
     renderEvidenceMatrix(data.evidenceMatrix);

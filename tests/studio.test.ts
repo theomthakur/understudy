@@ -34,11 +34,13 @@ test("Studio summary exposes the live replay guarantee, catalog, and full eviden
       catalog: unknown[];
       evidenceMatrix: unknown[];
       unresolvedHandoffs: number;
+      targetReachable: boolean;
     };
     assert.equal(summary.modelInvocationsOnReplay, 0);
     assert.equal(summary.catalog.length, 2);
     assert.equal(summary.evidenceMatrix.length, 8);
     assert.equal(summary.unresolvedHandoffs, 0);
+    assert.equal(typeof summary.targetReachable, "boolean");
   } finally {
     await studio.close();
   }

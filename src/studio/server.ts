@@ -83,6 +83,9 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
         }>;
       };
       const catalog = new CapabilityCatalog(resolve("capabilities")).load().toToolDefinitions();
+      const targetReachable = await fetch(targetProxyOrigin, { signal: AbortSignal.timeout(1_500) })
+        .then((response) => response.ok)
+        .catch(() => false);
       res.json({
         artifact,
         environment: "synthetic",
@@ -94,6 +97,7 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
         catalog,
         knownOutcomes: artifact.businessOutcomes.length,
         unresolvedHandoffs: liveIntervention?.broker.list().filter((item) => item.state !== "released" && item.state !== "abandoned").length ?? 0,
+        targetReachable,
       });
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Could not load capability" });

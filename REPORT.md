@@ -2,128 +2,85 @@
 
 ## 1. Architecture
 
-Understudy learns a task in software that has no suitable API, turns the successful path into a capability, and runs that capability later without a model.
+Understudy has two execution paths. Discovery uses a model to complete a natural-language goal and records the successful flow. Replay executes the approved artifact with typed inputs and no model decisions.
 
-There are two connected paths:
-
-```text
-DISCOVERY: natural-language goal -> model observes and proposes -> policy checks
-           -> Surface acts -> Recorder creates draft -> person approves
-
-REPLAY:    typed invocation -> validate input and tenant -> run saved steps
-           -> check results -> ok | outcome | failed | escalated
+```mermaid
+flowchart LR
+    G[Goal and typed contract] --> D[LLM discovery]
+    D --> S[Policy-controlled Surface]
+    S -->|successful discovery trace| R[Recorder]
+    R --> V[Human review and approval]
+    V --> A[(Versioned capability)]
+    I[Agent invocation] --> X[Deterministic replay]
+    A --> X
+    X --> S
+    S -->|replay| O[Typed result]
+    S --> E[Redacted evidence]
+    S <--> H[Same-session human handoff]
 ```
 
-Discovery is the only path with a model. On each step, the model receives a screenshot for visual context and a numbered list of controls it may use. It cannot act through a selector, coordinate, or element that the runtime did not provide. Step count, action count, and total time are limited.
+Discovery and replay share policy, the `Surface` UI abstraction, evidence/redaction, and handoff. Only discovery can access a model. The implementation uses Playwright against a local hostile banking UI with frames, nested tables, volatile IDs, tenant-specific labels, and controlled failures.
 
-Replay is deliberately different. It has no model client, prompt, or model fallback. It validates the input, applies any tenant-specific labels, follows the saved steps, checks the resulting screen, and records evidence. Every committed replay reports `modelInvocations: 0`.
-
-Both paths use the same four services:
-
-- `PolicyEngine` checks hosts, routes, action types, risk, and time limits.
-- `Surface` is the single interface for observing and operating a UI.
-- `EvidenceLog` records what happened after registered sensitive values are redacted.
-- `EscalationBroker` transfers ownership of the same live session to a person.
-
-Only `WebSurface` knows that the current implementation uses Playwright. A future desktop implementation could provide the same observe, resolve, and act operations through Windows UI Automation or macOS Accessibility without changing discovery, replay, policy, or the artifact.
-
-The target is a local synthetic banking console with frames, nested tables, changing IDs, no test IDs, tenant-specific labels, and controlled error switches. It is local so exceptional states can be tested safely and repeatedly.
+The separation is intentional: the model explores, while production execution stays reviewable, predictable, and inexpensive.
 
 ## 2. Artifact schema
 
-The artifact is a reviewed contract, not a raw macro recording. Its runtime-validated schema contains:
+The artifact is a capability contract, not a raw transcript. It contains:
 
-- name, schema version, revision, application, and supported UI type;
-- typed inputs and outputs, including validation and sensitivity;
-- ordered steps whose fields depend on the action type;
-- accessible descriptions of each target and ordered fallback descriptions;
-- checks after navigation and other state changes;
-- known business outcomes and limited recovery rules;
-- risk level, approval state, and a snapshot of the policy used;
-- tenant-specific URL or label changes;
-- discovery provenance and a hash of the executable contract.
+- stable identity, schema version, revision, application, and surface type;
+- typed inputs and outputs with validation and sensitivity flags;
+- ordered actions with accessible target descriptions and reviewed fallbacks;
+- checkpoints, known business outcomes, and bounded recovery rules;
+- risk, approval, tenant overlays, discovery provenance, and a contract hash.
 
-A recorded value becomes a reusable parameter only when it matches an input that was explicitly declared before discovery. The recorder does not guess that similar-looking values should become parameters.
+Only values declared as inputs before discovery become parameters. This avoids guessing from similar-looking text. The recorder also replaces volatile output descriptions with relationships. For example, it reads the Balance cell in the row containing SAVINGS instead of locating a member-specific currency value.
 
-The genuine discovery run exposed an important issue. The model identified a savings balance by the currency value visible during that run. Saving that description would tie replay to one member. The recorder now removes value-shaped descriptions and saves the relationship instead: the Balance column in the row containing SAVINGS. Tests replay the same artifact for another member and for another tenant.
-
-New capabilities are drafts. Approval records who reviewed the artifact and when, then recomputes the contract hash. An irreversible draft is refused before execution. Runtime escalation does not replace review.
+New artifacts are drafts. Approval binds the reviewed executable contract to a hash; changed or unapproved irreversible artifacts fail closed.
 
 ## 3. Determinism & error handling
 
-Replay always follows the artifact's order. It finds a target using a fixed confidence order: relational table description, exact accessible role and name, scoped role and name, then an explicitly saved fallback. The two committed capabilities do not use CSS, XPath, or coordinates. Target resolution polls only within a fixed timeout.
+Replay validates inputs and tenant configuration, then follows the saved step order. Target resolution uses a fixed ladder: relational table description, exact accessible role/name, scoped role/name, then an explicitly saved fallback. It polls only within a time budget and checks the resulting state after each transition.
 
-After navigation or another state-changing action, replay checks that the expected screen was reached. A successful click alone is not treated as success. Typing and reading do not claim that the page changed. After each state change, the browser navigation guard is checked again.
+The result contract separates four cases:
 
-The caller receives one of four clear result types:
+- `ok`: checkpoints pass and declared outputs are returned;
+- `outcome`: a valid business result such as member not found or permission denied;
+- `failed`: input, policy, target, application, timeout, or checkpoint failure with step-level evidence;
+- `escalated`: a person owns a live intervention.
 
-- `ok`: the final check passed and every declared output was returned.
-- `outcome`: the application returned a known business answer, such as `MEMBER_NOT_FOUND`, `NO_SAVINGS_ACCOUNT`, `PERMISSION_DENIED`, or `SESSION_EXPIRED`.
-- `failed`: input, policy, target, application, recovery, checkpoint, or time limit failed. The result identifies the step, expected state, observed state, and evidence.
-- `escalated`: a person owns, or abandoned, a live intervention. This is a paused run, not a normal terminal result.
-
-Recovery never improvises. The artifact may declare a small recovery, such as closing a known dialog or waiting briefly for a late control, with an attempt limit. If enabled, an unresolved runtime problem can be offered to a person. When the person returns control, replay finds the target again and checks the expected state before continuing.
+Recovery is artifact-declared and attempt-limited, such as dismissing a known interstitial or waiting for a late control. Replay never asks a model to improvise.
 
 ## 4. Heterogeneity & multi-tenant
 
-Accessible roles, names, frames, and table relationships work across modern pages and older web applications. The synthetic target proves frames and nested tables rather than only a clean single-page application. Coordinates are evidence from discovery, not replay locators.
+Discovery and replay depend on `Surface`, not Playwright directly. A desktop adapter could implement the same observe, resolve, and act operations through an accessibility API without changing the artifact or executor.
 
-Tenant reuse uses one base artifact plus small reviewed overlays. An overlay may change the entry URL or a visible label. The same balance capability runs on Riverbend and Summitline even though `Member ID` becomes `Member Number`. A label or configuration change belongs in an overlay; a materially different workflow requires a new artifact revision.
+One base artifact can have small reviewed tenant overlays for entry URLs or visible labels. The same capability runs for Riverbend and Summitline even though `Member ID` becomes `Member Number`. A materially different workflow requires a new artifact revision rather than a growing tenant patch.
 
-At production scale, API nodes could remain stateless while isolated browser workers own active sessions. Artifacts would move to a versioned database, events to an append-only store, screenshots to encrypted object storage, and interventions to a durable ownership queue. Workers would scale with active sessions rather than with the number of tenants.
-
-Those production components are design boundaries, not claims about this submission. The candidate project remains one local process or one local container so the full behavior is easy to run and review.
+The submission proves the abstraction locally. It does not build distributed multi-tenant infrastructure.
 
 ## 5. Escalation & handoff
 
-Handoff transfers control; it does not merely send a notification.
+An intervention carries the run, capability, step, reason, location, and current evidence. Automation releases its ownership lease, and a named operator claims the same live browser session. While the operator owns it, automation actions throw.
+
+Human actions are audited without raw typed values. After release, replay verifies the expected checkpoint before continuing. The tested state flow is:
 
 ```text
-automation -> waiting for person -> claimed by operator -> released -> automation
-                                   \-> abandoned -> automation
+automation -> awaiting human -> claimed -> released -> verified resume
+                             \-> abandoned -> automation stops or retries by policy
 ```
 
-When replay reaches an approved irreversible action, or an enabled runtime failure cannot be resolved, the broker records the reason, capability, step, location, screenshot, and run ID. Automation gives up its ownership lease. Any automation action attempted while a person owns the session throws an error.
-
-The operator must claim the intervention before acting. The local evidence test can attach a second Playwright client to the same persistent browser through loopback CDP. This proves that cookies, frames, open pages, and prepared form state were not recreated in a substitute session. The Studio exposes a deliberately small click, type, and press interface against that same paused Surface.
-
-Human actions are audited without storing raw typed text. The operator's note is stored as context but is never parsed as an instruction. After release, replay checks the guarded step's expected result before marking it complete. Transfer, claim, human action, release, resume, and final result remain in one evidence stream.
-
-A production handoff service would also need authenticated operator identity, durable ownership with heartbeat and expiry, approved remote-session streaming, and recovery after a worker failure.
+The local implementation proves pause, exclusive ownership, same-session control, action capture, and verified resume. Production would add authenticated identity, durable leases, remote-session streaming, and worker recovery.
 
 ## 6. Safety
 
-The model proposes an action; the runtime decides whether it is allowed and performs it.
+The runtime, not the model, controls execution. Exact-host/path allowlists and browser interception block disallowed navigation, frames, redirects, and popups. The action vocabulary is limited, risky steps are gated, and inputs are validated before browser work.
 
-- Discovery and replay use the same policy engine.
-- Host checks use exact hosts or explicit suffixes and may restrict paths.
-- Browser request interception blocks redirects, frame navigation, click navigation, and popups before they leave the allowed host.
-- The action vocabulary is limited.
-- Step risk is stored in the artifact.
-- Draft irreversible capabilities fail closed.
-- Steps, full runs, target resolution, recovery, and handoff waits have limits.
-- Only one actor can own the Surface.
-- Inputs are validated before browser work.
-- Sensitive inputs and outputs are registered with the redactor before evidence is written.
-- Raw HTML, credentials, model keys, operator-entered text, and full model transcripts are not persisted.
+Sensitive values are registered with the redactor before evidence is written. Artifacts and logs exclude credentials, raw PII, raw HTML, full model transcripts, and operator-entered text. The target contains fabricated records only.
 
-A sensitive currency result is useful to the caller but is stored in evidence only as its type, a hash, and a masked proof. The local synthetic Studio may display the fabricated value. A real financial deployment would also require screenshot redaction, encryption, access control, and a retention policy.
-
-All records in `target-app/data.ts` are fabricated. No external bank, customer record, or credential is accessed.
+Known gaps for real financial use are screenshot redaction, encryption, access control, retention rules, and authenticated operators.
 
 ## 7. Cuts
 
-The submission focuses on the required vertical slice. It does not add a voice interface, CRM, employee queue, decorative login, real bank connection, or a large fake dashboard. Those features would not strengthen discovery, the artifact, deterministic replay, evidence, or handoff.
+The project keeps one complete local vertical slice. The operator UI is minimal, there is no hosted deployment, and desktop or production multi-tenant infrastructure is represented only by clean seams. These cuts preserve focus on the artifact, deterministic replay, error handling, safety, evidence, and same-session handoff.
 
-The operator interface is intentionally small. It proves same-session ownership and verified resume; it does not claim to be a production co-browsing system. Authentication and durable ownership are stated deployment gaps.
-
-The Capability Studio is a reviewer aid over the same implementation. It has six sections: Overview, Guided demo, Proof, Human review, Design decisions, and Presentation. The Guided demo provides three goal examples, a synthetic discovery input, and an animated stage-by-stage walkthrough. The default goal replays the shape of committed genuine discovery evidence; the other examples are labelled illustrated previews. A separate button copies the real CLI command, so playback is never presented as a new model run. Design decisions includes the high-level architecture and eighteen decisions. Presentation is a ten-slide walkthrough. The CLI remains the full discovery, approval, and replay path.
-
-Hosting is not included because the assignment does not require it. Docker remains an optional local run method only.
-
-Two stretch directions are included:
-
-1. approved capabilities are exposed to agents as typed tool definitions; and
-2. one capability is reused across tenants through constrained overlays.
-
-The evidence script rebuilds the named cases and checks that directory names, result types, business codes, failures, screenshots, handoff events, and paths agree. A second verifier scans for known synthetic sensitive values. This keeps the written claims tied to executable evidence.
+Two bounded stretch goals remain: approved artifacts are exposed as typed agent-callable tools, and one artifact is reused across two tenant variants. Next work would harden operator identity and durable session ownership before adding broader surface support.

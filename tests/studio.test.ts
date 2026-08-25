@@ -37,6 +37,8 @@ test("Studio design register and presentation stay aligned with committed conten
   assert.match(source, /id="surface-stage"/);
   assert.equal((source.match(/data-goal="/g) ?? []).length, 3);
   assert.match(source, /High-level system design/);
+  assert.match(source, /id="presentation-architecture"/);
+  assert.match(source, /<use href="#presentation-architecture"><\/use>/);
   assert.match(source, /Thank you\./);
   assert.match(source, /https:\/\/theomthakur\.github\.io\/portfolio/);
   assert.match(source, /https:\/\/github\.com\/theomthakur/);

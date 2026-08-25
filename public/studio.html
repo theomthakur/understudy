@@ -123,11 +123,8 @@
 
           <section class="architecture-overview panel" aria-labelledby="architecture-overview-title">
             <div class="architecture-copy"><div class="eyebrow">High-level system design</div><h2 id="architecture-overview-title">Learn once, approve once, replay without a model</h2><p>Discovery and replay share policy, UI access, evidence, and handoff. Only discovery can call the model.</p></div>
-            <div class="architecture-lanes" role="img" aria-label="High-level architecture. A natural-language goal enters a model-driven discovery loop and recorder, producing a draft artifact for human approval. The approved capability enters a catalog. Agents invoke the catalog capability through deterministic replay, which returns a typed result. Discovery and replay share policy, a Surface interface, evidence, and human handoff while operating a hostile synthetic target.">
-              <div class="architecture-lane discovery-lane"><div class="lane-label">Discovery · once · model in the loop</div><div class="lane-flow"><span>Human-language goal<br><small>plus typed contract</small></span><i>→</i><span>Model observes<br><small>and chooses a control</small></span><i>→</i><span>Recorder hardens<br><small>the successful path</small></span><i>→</i><span>Draft artifact</span><i>→</i><span>Human approval</span></div></div>
-              <div class="architecture-lane shared-lane"><div class="lane-label">Shared runtime</div><div class="lane-flow"><span>Policy</span><span>Surface: observe · resolve · act</span><span>Evidence and redaction</span><span>Human handoff lease</span></div></div>
-              <div class="architecture-lane replay-lane"><div class="lane-label">Replay · every call · no model path</div><div class="lane-flow"><span>Agent invokes<br><small>approved capability</small></span><i>→</i><span>Validate input<br><small>and tenant overlay</small></span><i>→</i><span>Run fixed steps<br><small>act and checkpoint</small></span><i>→</i><span>Typed result<br><small>ok · outcome · failed · escalated</small></span></div></div>
-              <div class="architecture-target"><b>Hostile synthetic target</b><span>Frames · nested tables · volatile IDs · tenant labels · reproducible errors</span></div>
+            <div class="architecture-diagram-wrap">
+              <svg class="arch-diagram" viewBox="0 0 980 430" role="img" aria-label="High-level architecture: a discovery path with the model in the loop compiles into an approved capability, which a deterministic replay path executes through a shared policy, surface, evidence, and escalation runtime against a hostile synthetic target."><use href="#presentation-architecture"></use></svg>
             </div>
           </section>
 
@@ -205,7 +202,7 @@
               <article class="slide">
                 <div class="slide-head"><span class="slide-kicker">02 · Architecture</span><h2>Two paths, one shared runtime</h2></div>
                 <div class="slide-body">
-                  <svg class="arch-diagram" viewBox="0 0 980 430" role="img" aria-label="High-level architecture: a discovery path with the model in the loop compiles into an approved capability, which a deterministic replay path executes through a shared policy, surface, evidence, and escalation runtime against a hostile synthetic target.">
+                  <svg class="arch-diagram" id="presentation-architecture" viewBox="0 0 980 430" role="img" aria-label="High-level architecture: a discovery path with the model in the loop compiles into an approved capability, which a deterministic replay path executes through a shared policy, surface, evidence, and escalation runtime against a hostile synthetic target.">
                     <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#68738a"/></marker><marker id="arrb" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#1648b8"/></marker></defs>
                     <rect x="10" y="14" width="700" height="112" rx="14" fill="#fff8dc" stroke="#f0d79a"/>
                     <text x="26" y="36" font-size="10" font-weight="700" fill="#a86713" letter-spacing="1.5">DISCOVERY · MODEL IN THE LOOP · ONCE</text>

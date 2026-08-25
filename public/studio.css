@@ -507,6 +507,7 @@ a { color: inherit; }
 .architecture-overview { margin-top: 22px; padding: 22px; }
 .architecture-copy h2 { margin: 8px 0 6px; font-size: 20px; letter-spacing: -.035em; }
 .architecture-copy p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.architecture-diagram-wrap { margin-top: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #fbfcff; }
 .architecture-lanes { display: grid; grid-template-columns: minmax(0,1fr) 210px; gap: 12px; margin-top: 18px; }
 .architecture-lane { grid-column: 1; padding: 13px; border: 1px solid var(--line); border-radius: 13px; }
 .discovery-lane { background: var(--yellow-soft); border-color: #f0d79a; }

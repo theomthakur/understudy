@@ -5,6 +5,7 @@ const state = {
   discoveryRunning: false,
   handoff: "idle",
   interventionId: null,
+  interventionPreview: null,
   targetOrigin: "/legacy",
 };
 
@@ -386,8 +387,8 @@ async function playDiscovery() {
     $("#execution-badge").className = "badge success";
     output.className = "output-card";
     output.innerHTML = preset.proof
-      ? `<div class="output-label">Genuine discovery playback complete</div><div class="output-value">member.read_savings_balance</div><div class="output-sub">Typed input · typed output · 4 deterministic replay steps</div>`
-      : `<div class="output-label">Illustrated preview complete</div><div class="output-value">${preset.name}</div><div class="output-sub">Copy and run the genuine command to create this draft</div>`;
+      ? `<div class="output-label">Genuine discovery playback complete</div><div class="output-value">Read a member's savings balance</div><div class="output-code">member.read_savings_balance</div><div class="output-sub">Typed input · typed output · 4 deterministic replay steps</div>`
+      : `<div class="output-label">Illustrated preview complete</div><div class="output-code">${preset.name}</div><div class="output-sub">Copy and run the genuine command to create this draft</div>`;
     notify("Discovery walkthrough complete", preset.proof
       ? "The timeline replayed the committed model-driven discovery stages."
       : "This preview shows the intended stages; no model run is claimed for this example.");
@@ -565,6 +566,36 @@ const handoffEmpty = $("#handoff-empty");
 const handoffCard = $("#intervention-card");
 const ownerLabel = $("#control-owner");
 const claimButton = $("#claim-intervention");
+const operatorModal = $("#operator-modal");
+const operatorPreview = $("#operator-preview");
+const operatorPrimary = $("#operator-primary");
+const operatorSecondary = $("#operator-secondary");
+
+function refreshOperatorPreview() {
+  if (!state.interventionPreview) return;
+  operatorPreview.src = `${state.interventionPreview}?t=${Date.now()}`;
+}
+
+function openOperatorModal() {
+  operatorModal.hidden = false;
+  document.body.classList.add("operator-modal-open");
+  refreshOperatorPreview();
+  operatorPrimary.focus();
+}
+
+function closeOperatorModal() {
+  operatorModal.hidden = true;
+  document.body.classList.remove("operator-modal-open");
+}
+
+$("#operator-close").addEventListener("click", closeOperatorModal);
+operatorSecondary.addEventListener("click", closeOperatorModal);
+operatorModal.addEventListener("click", (event) => {
+  if (event.target === operatorModal) closeOperatorModal();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !operatorModal.hidden) closeOperatorModal();
+});
 
 $("#create-handoff").addEventListener("click", async () => {
   const button = $("#create-handoff");
@@ -586,6 +617,9 @@ $("#create-handoff").addEventListener("click", async () => {
     if (!response.ok) throw new Error(data.error);
     state.handoff = "open";
     state.interventionId = data.intervention.id;
+    state.interventionPreview = `/api/studio/interventions/${data.intervention.id}/preview.png`;
+    operatorSecondary.hidden = false;
+    closeOperatorModal();
     $("#handoff-count").textContent = "1";
     handoffEmpty.style.display = "none";
     handoffCard.classList.add("active");
@@ -606,7 +640,7 @@ $("#create-handoff").addEventListener("click", async () => {
   }
 });
 
-claimButton.addEventListener("click", async () => {
+async function advanceHandoff() {
   if (!state.interventionId) return;
   const action = state.handoff === "open" ? "claim" : state.handoff === "claimed" ? "act" : "release";
   const body = action === "claim"
@@ -614,51 +648,92 @@ claimButton.addEventListener("click", async () => {
     : action === "act"
       ? { kind: "click", target: { role: "button", name: "Confirm and Open", nameMatch: "contains", frame: { strategy: "main" }, fallbacks: [] } }
       : { note: "Reviewer completed the guarded manual step." };
-  const response = await fetch(`/api/studio/interventions/${state.interventionId}/${action}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    notify("Control transfer failed", data.error);
-    return;
-  }
-  if (action === "claim") {
-    state.handoff = "claimed";
-    claimButton.textContent = "Complete guarded action";
-    ownerLabel.textContent = "Human operator in control";
-    $("#handoff-state").textContent = "Claimed";
-    $("#handoff-state").className = "badge warn";
-    notify("Control transferred", "You now own the paused session. Complete the prepared action, then let replay verify it.");
-  } else if (action === "act") {
-    state.handoff = "acted";
-    claimButton.textContent = "Verify and resume automation";
-    $("#handoff-state").textContent = "Action completed";
-    notify("Human action recorded", "The click ran in the same paused browser context; raw form values were not logged.");
-  } else {
-    state.handoff = "resolved";
-    $("#handoff-count").textContent = "0";
-    claimButton.textContent = "Intervention resolved";
-    claimButton.disabled = true;
-    ownerLabel.textContent = "Automation resumed";
-    $("#handoff-state").textContent = "Released";
-    $("#handoff-state").className = "badge success";
-    if (data.result?.status === "ok") {
-      notify("Replay resumed and completed", `${data.humanEvents.length} human action event(s) were audited; the final checkpoint passed.`);
+  claimButton.disabled = true;
+  operatorPrimary.disabled = true;
+  try {
+    const response = await fetch(`/api/studio/interventions/${state.interventionId}/${action}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+    if (action === "claim") {
+      state.handoff = "claimed";
+      claimButton.textContent = "Open live takeover";
+      ownerLabel.textContent = "Human operator in control";
+      $("#handoff-state").textContent = "Claimed";
+      $("#handoff-state").className = "badge warn";
+      $("#operator-title").textContent = "Human operator controls the paused session";
+      $("#operator-description").textContent = "Review the exact prepared screen, complete the guarded action, then return control to automation.";
+      $("#operator-status").textContent = "Human control";
+      $("#operator-status").className = "badge warn";
+      $("#operator-step-title").textContent = "Confirmation requires a person";
+      $("#operator-step-detail").textContent = "Automation is physically blocked while candidate.reviewer holds this lease.";
+      operatorPrimary.textContent = "Complete guarded action";
+      operatorSecondary.textContent = "Close view - keep paused";
+      openOperatorModal();
+      notify("Control transferred", "You now own the same paused session inside the takeover window.");
+    } else if (action === "act") {
+      state.handoff = "acted";
+      claimButton.textContent = "Open live takeover";
+      $("#handoff-state").textContent = "Action completed";
+      $("#operator-status").textContent = "Action completed";
+      $("#operator-step-title").textContent = "Guarded action completed";
+      $("#operator-step-detail").textContent = "The action ran in this same browser session. Return the lease so replay can verify the checkpoint.";
+      operatorPrimary.textContent = "Verify and resume automation";
+      refreshOperatorPreview();
+      notify("Human action recorded", "The action ran in the same paused browser context; raw form values were not logged.");
     } else {
-      notify("Control returned, verification failed", `Replay finished as ${data.result?.status || "unknown"}; inspect the evidence before retrying.`);
+      state.handoff = "resolved";
+      $("#handoff-count").textContent = "0";
+      claimButton.textContent = "Intervention resolved";
+      ownerLabel.textContent = "Automation resumed";
+      $("#handoff-state").textContent = "Released";
+      $("#handoff-state").className = "badge success";
+      $("#operator-status").textContent = data.result?.status === "ok" ? "Verified" : "Verification failed";
+      $("#operator-status").className = data.result?.status === "ok" ? "badge success" : "badge fail";
+      $("#operator-title").textContent = data.result?.status === "ok" ? "Automation resumed safely" : "Automation stopped after verification";
+      $("#operator-description").textContent = data.result?.status === "ok"
+        ? "The deterministic checkpoint passed after the human action and the run completed."
+        : "The checkpoint did not pass, so replay stopped instead of continuing blindly.";
+      $("#operator-step-title").textContent = data.result?.status === "ok" ? "Handoff complete" : "Review required";
+      $("#operator-step-detail").textContent = `${data.humanEvents?.length ?? 0} human-session event(s) were added to the audit trail.`;
+      operatorPrimary.textContent = "Done";
+      operatorSecondary.hidden = true;
+      if (data.result?.status === "ok") {
+        notify("Replay resumed and completed", `${data.humanEvents.length} human action event(s) were audited; the final checkpoint passed.`);
+      } else {
+        notify("Control returned, verification failed", `Replay finished as ${data.result?.status || "unknown"}; inspect the evidence before retrying.`);
+      }
     }
+  } catch (error) {
+    notify("Control transfer failed", error.message);
+  } finally {
+    operatorPrimary.disabled = false;
+    claimButton.disabled = state.handoff === "resolved";
   }
+}
+
+claimButton.addEventListener("click", () => {
+  if (state.handoff === "claimed" || state.handoff === "acted") openOperatorModal();
+  else void advanceHandoff();
+});
+operatorPrimary.addEventListener("click", () => {
+  if (state.handoff === "resolved") closeOperatorModal();
+  else void advanceHandoff();
 });
 
 $("#dismiss-intervention").addEventListener("click", () => {
   state.handoff = "idle";
   state.interventionId = null;
+  state.interventionPreview = null;
   $("#handoff-count").textContent = "0";
   handoffCard.classList.remove("active");
   handoffEmpty.style.display = "grid";
   ownerLabel.textContent = "Automation owns session";
+  operatorSecondary.hidden = false;
+  closeOperatorModal();
 });
 
 const slides = [...document.querySelectorAll(".slide")];

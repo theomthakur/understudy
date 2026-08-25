@@ -14,6 +14,51 @@ test("Studio proxies the live synthetic target on the reviewer-visible origin", 
   }
 });
 
+test("Studio takeover previews and operates the exact paused session", async () => {
+  const studio = await startStudioServer(0, false);
+  try {
+    const startedResponse = await fetch(`${studio.origin}/api/studio/interventions/demo`, { method: "POST" });
+    assert.equal(startedResponse.status, 200);
+    const started = await startedResponse.json() as { intervention: { id: string; state: string } };
+    assert.equal(started.intervention.state, "open");
+
+    const preview = await fetch(`${studio.origin}/api/studio/interventions/${started.intervention.id}/preview.png`);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.headers.get("content-type"), "image/png");
+    const bytes = new Uint8Array(await preview.arrayBuffer());
+    assert.deepEqual([...bytes.slice(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+
+    const claim = await fetch(`${studio.origin}/api/studio/interventions/${started.intervention.id}/claim`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ operator: "candidate.reviewer" }),
+    });
+    assert.equal(claim.status, 200);
+
+    const act = await fetch(`${studio.origin}/api/studio/interventions/${started.intervention.id}/act`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "click",
+        target: { role: "button", name: "Confirm and Open", nameMatch: "contains", frame: { strategy: "main" }, fallbacks: [] },
+      }),
+    });
+    assert.equal(act.status, 200);
+
+    const release = await fetch(`${studio.origin}/api/studio/interventions/${started.intervention.id}/release`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ note: "Completed from the embedded takeover." }),
+    });
+    assert.equal(release.status, 200);
+    const completed = await release.json() as { result: { status: string }; humanEvents: unknown[] };
+    assert.equal(completed.result.status, "ok");
+    assert.ok(completed.humanEvents.length > 0);
+  } finally {
+    await studio.close();
+  }
+});
+
 test("Studio starts with pending timeline steps rather than completed checkmarks", async () => {
   const source = await readFile("public/studio.js", "utf8");
   assert.match(source, /function renderTimeline\(steps, completed = -1,/);
@@ -75,6 +120,8 @@ test("Studio design register and presentation stay aligned with committed conten
   assert.match(source, /Show and copy genuine command/);
   assert.match(source, /id="discovery-command-panel"/);
   assert.match(source, /id="surface-stage"/);
+  assert.match(source, /id="operator-modal"/);
+  assert.match(source, /Same-session takeover/);
   assert.equal((source.match(/data-goal="/g) ?? []).length, 3);
   assert.match(source, /High-level system design/);
   assert.match(source, /id="presentation-architecture"/);
@@ -101,6 +148,10 @@ test("Studio presentation uses one fixed frame and a synchronized fullscreen mod
   assert.match(script, /event\.key === "f" \|\| event\.key === "F"/);
   assert.match(script, /Replaying approved safe steps/);
   assert.match(script, /Approaching irreversible gate/);
+  assert.match(script, /same paused session inside the takeover window/);
+
+  assert.match(css, /\.output-value[^}]*overflow-wrap:\s*anywhere/s);
+  assert.match(css, /\.operator-modal/);
 });
 
 test("Studio supports direct section links and labelled compact navigation", async () => {

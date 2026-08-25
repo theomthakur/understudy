@@ -140,6 +140,18 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
     res.json({ interventions: liveIntervention?.broker.list() ?? [], controlHolder: liveIntervention?.broker.controlHolder ?? "automation" });
   });
 
+  app.get("/api/studio/interventions/:id/preview.png", async (req, res) => {
+    try {
+      if (!liveIntervention || liveIntervention.id !== req.params.id) throw new Error("Intervention is not active");
+      const screenshot = await liveIntervention.surface.screenshotBuffer();
+      res.setHeader("content-type", "image/png");
+      res.setHeader("cache-control", "no-store");
+      res.send(screenshot);
+    } catch (error) {
+      res.status(404).json({ error: error instanceof Error ? error.message : "Could not capture live session" });
+    }
+  });
+
   app.post("/api/studio/interventions/demo", async (_req, res) => {
     if (liveIntervention) {
       const previous = liveIntervention;
@@ -151,7 +163,10 @@ export async function startStudioServer(port = STUDIO_PORT, startTarget = true):
       await previous.surface.close();
       liveIntervention = undefined;
     }
-    const surface = new WebSurface({ headless: PUBLIC_DEMO, slowMoMs: PUBLIC_DEMO ? 0 : 100 });
+    // The Studio presents the operator surface inside its own takeover dialog. A separate
+    // headed Chromium window would split the reviewer's attention and is unnecessary: the
+    // dialog reads and acts through this exact paused session.
+    const surface = new WebSurface({ headless: true, slowMoMs: 0 });
     await surface.start();
     const log = new EvidenceLog(newRunId("replay"), new Redactor(), "evidence/runs");
     const broker = new EscalationBroker(surface, log, `http://localhost:${port}/studio`);

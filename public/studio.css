@@ -428,8 +428,9 @@ a { color: inherit; }
 .output-card.fail .output-label { color: var(--red); }
 .output-card.outcome .output-label { color: var(--amber); }
 .output-card.progress .output-label { color: var(--blue); }
-.output-value { margin-top: 7px; font-size: 21px; font-weight: 780; letter-spacing: -.04em; }
-.output-sub { margin-top: 3px; color: var(--muted); font-size: 8.5px; }
+.output-value { min-width: 0; max-width: 100%; margin-top: 7px; overflow-wrap: anywhere; font-size: 21px; font-weight: 780; line-height: 1.14; letter-spacing: -.04em; }
+.output-code { max-width: 100%; margin-top: 7px; padding: 5px 7px; overflow-wrap: anywhere; border-radius: 7px; background: rgba(22,72,184,.07); color: var(--blue); font: 700 9px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.output-sub { min-width: 0; margin-top: 5px; overflow-wrap: anywhere; color: var(--muted); font-size: 8.5px; }
 .model-zero { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding: 10px; border-radius: 10px; background: #f4f6fa; color: var(--muted); font-size: 9px; }
 .model-zero b { color: var(--blue); font-size: 13px; }
 
@@ -523,6 +524,26 @@ a { color: inherit; }
 .detail-table { width: 100%; margin-top: 13px; border-collapse: collapse; }
 .detail-table th, .detail-table td { padding: 9px 4px; border-bottom: 1px solid #edf0f5; text-align: left; font-size: 9.5px; }
 .detail-table th { width: 120px; color: var(--muted); font-weight: 600; }
+
+.operator-modal { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 24px; background: rgba(8,16,34,.68); backdrop-filter: blur(8px); }
+.operator-dialog { width: min(900px, 96vw); max-height: 94vh; overflow: auto; border: 1px solid rgba(255,255,255,.18); border-radius: 20px; background: white; box-shadow: 0 28px 90px rgba(4,11,27,.34); }
+.operator-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 20px 22px 17px; border-bottom: 1px solid var(--line); }
+.operator-dialog-head h2 { margin: 5px 0 0; font-size: 20px; letter-spacing: -.035em; }
+.operator-dialog-head p { margin: 6px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.operator-close { width: 32px; height: 32px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--muted); font-size: 19px; line-height: 1; }
+.operator-close:hover { background: #f3f6fb; color: var(--ink); }
+.operator-lease { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 11px; margin: 16px 22px; padding: 12px 13px; border: 1px solid #f0d79a; border-radius: 12px; background: var(--yellow-soft); }
+.operator-avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; background: var(--blue); color: white; font-size: 12px; font-weight: 800; }
+.operator-lease strong { display: block; font-size: 10.5px; }
+.operator-lease span:not(.badge) { display: block; margin-top: 3px; color: #7d632c; font-size: 9px; }
+.operator-screen { position: relative; min-height: 330px; margin: 0 22px; overflow: hidden; border: 1px solid #cbd3df; border-radius: 13px; background: #d4d0c8; }
+.operator-screen img { width: 100%; min-height: 330px; max-height: 52vh; display: block; object-fit: contain; background: #d4d0c8; }
+.operator-screen-tag { position: absolute; left: 12px; top: 12px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 8px; background: rgba(16,23,42,.88); color: white; font-size: 8.5px; font-weight: 740; }
+.operator-dialog-foot { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 17px 22px 20px; }
+.operator-explanation strong { display: block; font-size: 10.5px; }
+.operator-explanation span { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.operator-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+body.operator-modal-open { overflow: hidden; }
 
 .toast {
   position: fixed;
@@ -750,4 +771,10 @@ a { color: inherit; }
   .slide-head, .slide-body { padding-left: 20px; padding-right: 20px; }
   .slide-title-layout { padding: 28px 22px; }
   .deck-controls .button { min-width: 96px; }
+  .operator-modal { padding: 10px; }
+  .operator-dialog-head, .operator-dialog-foot { align-items: flex-start; flex-direction: column; }
+  .operator-actions { width: 100%; }
+  .operator-actions .button { flex: 1; }
+  .operator-screen { min-height: 250px; margin: 0 12px; }
+  .operator-screen img { min-height: 250px; }
 }

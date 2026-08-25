@@ -6,7 +6,7 @@
   <meta name="description" content="Candidate project: an LLM discovers a legacy UI flow once, then a typed capability replays without a model.">
   <title>Understudy · Capability Studio</title>
   <link rel="icon" href="/studio-assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/studio-assets/studio.css">
+  <link rel="stylesheet" href="/studio-assets/studio.css?v=takeover1">
 </head>
 <body>
   <div class="candidate-bar"><span></span> Candidate project for interface.ai · Synthetic banking environment · Not a production system</div>
@@ -429,8 +429,20 @@
     </main>
   </div>
 
+  <div class="operator-modal" id="operator-modal" hidden>
+    <section class="operator-dialog" role="dialog" aria-modal="true" aria-labelledby="operator-title">
+      <header class="operator-dialog-head">
+        <div><div class="eyebrow">Same-session takeover</div><h2 id="operator-title">Human operator controls the paused session</h2><p id="operator-description">Review the prepared confirmation, perform the guarded action, then return the lease to automation.</p></div>
+        <button class="operator-close" id="operator-close" type="button" aria-label="Close takeover view" title="Close view; the session stays paused">×</button>
+      </header>
+      <div class="operator-lease"><div class="operator-avatar">OM</div><div><strong>candidate.reviewer</strong><span>Exclusive control lease on the live browser session</span></div><span class="badge warn" id="operator-status">Human control</span></div>
+      <div class="operator-screen"><img id="operator-preview" alt="The exact paused synthetic banking session awaiting human action"><div class="operator-screen-tag"><span class="pulse"></span> Same live session</div></div>
+      <div class="operator-dialog-foot"><div class="operator-explanation"><strong id="operator-step-title">Confirmation requires a person</strong><span id="operator-step-detail">Automation is physically blocked while you hold the lease.</span></div><div class="operator-actions"><button class="button ghost" id="operator-secondary" type="button">Close view</button><button class="button blue" id="operator-primary" type="button">Complete guarded action</button></div></div>
+    </section>
+  </div>
+
   <nav class="mobile-nav" aria-label="Mobile navigation"><button class="nav-button active" data-view="overview" aria-label="Overview" title="Overview"><span class="nav-icon">⌂</span><span>Overview</span></button><button class="nav-button" data-view="studio" aria-label="Guided demo" title="Guided demo"><span class="nav-icon">▶</span><span>Demo</span></button><button class="nav-button" data-view="evidence" aria-label="Proof" title="Proof"><span class="nav-icon">◇</span><span>Proof</span></button><button class="nav-button" data-view="interventions" aria-label="Human review" title="Human review"><span class="nav-icon">↔</span><span>Human</span></button><button class="nav-button" data-view="decisions" aria-label="Design decisions" title="Design decisions"><span class="nav-icon">≡</span><span>Design</span></button><button class="nav-button" data-view="presentation" aria-label="Presentation" title="Presentation"><span class="nav-icon">▤</span><span>Slides</span></button></nav>
   <div class="toast" id="toast" role="status" aria-live="polite"><i>✓</i><div><strong>Ready</strong><span>The capability studio is available.</span></div></div>
-  <script src="/studio-assets/studio.js"></script>
+  <script src="/studio-assets/studio.js?v=takeover1"></script>
 </body>
 </html>

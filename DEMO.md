@@ -46,7 +46,8 @@ Open `http://localhost:4317/studio`. If the app was started with another `PORT`,
 
 7. Open **Human review** and click **Start safety demo**.
    - Click **Take control of live session**.
-   - Click **Complete guarded action**.
+   - The takeover opens inside the Studio. Confirm that `candidate.reviewer` owns the exclusive lease and that the exact paused session is visible.
+   - In the takeover window, click **Complete guarded action**.
    - Click **Verify and resume automation**.
    - Expected result: automation pauses before the irreversible confirmation, the human owns and acts in the same browser session, the action is audited, and deterministic replay resumes only after its checkpoint passes.
 

@@ -4,7 +4,7 @@
   "private": true,
   "description": "Computer-use automation: an LLM discovers a flow once, it becomes a typed capability, and it replays deterministically with no model in the loop.",
   "type": "module",
-  "engines": { "node": ">=18.18" },
+  "engines": { "node": ">=20" },
   "scripts": {
     "start": "node dist/src/studio/server.js",
     "app": "tsx src/studio/server.ts",
@@ -21,7 +21,7 @@
     "test": "tsx scripts/test-with-target.ts",
     "verify:evidence": "tsx scripts/verify-evidence.ts",
     "check": "npm run typecheck && npm test && npm run verify:evidence",
-    "postinstall": "playwright install chromium"
+    "setup:browser": "playwright install chromium"
   },
   "dependencies": {
     "express": "^4.19.2",

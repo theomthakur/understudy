@@ -4,10 +4,12 @@ Understudy uses an LLM to discover a UI task once, saves the successful flow as 
 
 ## Quick review
 
-Requirements: Node.js 18.18+ and npm. `npm install` also installs Playwright Chromium.
+Requirements: Node.js 20+ and npm. Browser installation is explicit so installing the package
+does not unexpectedly download a large binary.
 
 ```bash
 npm install
+npm run setup:browser
 npm run app
 ```
 
@@ -97,3 +99,7 @@ target-app/          hostile synthetic banking application
 ```
 
 See [`REPORT.md`](REPORT.md) for the system diagram, design decisions, trade-offs, and deliberate cuts.
+
+## License
+
+Licensed under the MIT License. See [`LICENSE`](LICENSE).

@@ -2,6 +2,8 @@
 
 Understudy uses an LLM to discover a UI task once, saves the successful flow as a reviewed capability, and replays it later with no model in the decision loop. The target application and all banking data are synthetic.
 
+**Source:** [GitHub](https://github.com/theomthakur/understudy) · **Run mode:** local browser demonstration; not a hosted service or published package
+
 ## Quick review
 
 Requirements: Node.js 20+ and npm. Browser installation is explicit so installing the package
@@ -46,6 +48,8 @@ ANTHROPIC_API_KEY=...
 UNDERSTUDY_PROVIDER=openai
 OPENAI_API_KEY=...
 ```
+
+Credentials are never stored in the repository. Any external model path may transmit observed interface data to its provider, so production use requires an appropriate data-handling review.
 
 In terminal 2, run a real model-driven discovery. The `_v2` name keeps the committed reference artifact unchanged.
 
@@ -99,6 +103,8 @@ target-app/          hostile synthetic banking application
 ```
 
 See [`REPORT.md`](REPORT.md) for the system diagram, design decisions, trade-offs, and deliberate cuts.
+
+Built by [Om Thakur](https://theomthakur.github.io/portfolio) · [LinkedIn](https://www.linkedin.com/in/theomthakur/)
 
 ## License
 
